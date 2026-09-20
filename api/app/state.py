@@ -1,4 +1,5 @@
 from mysql.connector.pooling import MySQLConnectionPool
+from httpx import AsyncClient
 
 
 class AppState:
@@ -8,5 +9,6 @@ class AppState:
         self.feature_names = None
         self.db_pool: MySQLConnectionPool = None
         self.groq_ready: bool = False
+        self.http_client: AsyncClient | None = None
 
 state = AppState()

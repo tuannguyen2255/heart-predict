@@ -1,5 +1,7 @@
 "use client";
 
+import { getAccessToken } from "@/lib/client-session";
+
 import { CheckCircle2, HeartPulse, Zap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ export default function PricingTable() {
     
     try {
       // 2. Lấy Token đăng nhập từ localStorage để xác thực danh tính
-      const token = localStorage.getItem("token"); 
+      const token = getAccessToken();
       
       if (!token) {
         alert("Vui lòng đăng nhập trước khi thực hiện nâng cấp tài khoản!");

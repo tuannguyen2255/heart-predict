@@ -1,5 +1,7 @@
 "use client";
 
+import { getAccessToken } from "@/lib/client-session";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
@@ -13,7 +15,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
-    if (!storedUsername) {
+    if (!storedUsername || !getAccessToken()) {
       router.push("/login");
     } else {
       setUsername(storedUsername);
@@ -30,9 +32,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell">
       <Header user={username ? { id: 0, email: "", full_name: username } : null} />
-      <main className="container mx-auto px-4 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <ProfileForm />
       </main>
     </div>

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { fillFromProfile, validateAssessment, AssessmentSnapshot } from "@/lib/assessment";
+import { AssessmentActions, AssessmentPrint } from "./assessment-actions";
 import { useLanguage } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { API_ENDPOINTS } from "@/lib/api-config";
+import { getAccessToken } from "@/lib/client-session";
+import { apiErrorMessage } from "@/lib/api-errors";
 import {
   Loader2,
   Heart,
@@ -20,7 +24,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { ResultDisplay } from "./result-display";
-import HeartChatbot from "../chatbot/HeartChatbot";
+import HeartChatbot from "../chatbot/lazy-heart-chatbot";
 interface ResultDetail {
   probability: number;
   risk_level: string;
@@ -53,7 +57,7 @@ interface FormData {
 
 const defaultFormData: FormData = {
   age: "",
-  sex: "1",
+  sex: "",
   height: "",
   weight: "",
   trestbps: "",
@@ -75,6 +79,24 @@ export function MultiStepDiagnosisForm() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [snapshot, setSnapshot] = useState<AssessmentSnapshot | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileNotice, setProfileNotice] = useState("");
+  const submitting = useRef(false);
+
+  const loadProfile = async () => {
+    setProfileLoading(true); setProfileNotice(""); setError("");
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error(language === "vi" ? "Vui lòng đăng nhập lại." : "Please sign in again.");
+      const response = await fetch(API_ENDPOINTS.userInfo, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      if (!response.ok) throw new Error(await apiErrorMessage(response));
+      const profile = await response.json();
+      setFormData((current) => fillFromProfile(current, profile ?? {}));
+      setProfileNotice(language === "vi" ? "Đã đọc hồ sơ và bổ sung thông tin hợp lệ vào ô trống. Hãy kiểm tra lại các chỉ số trước khi tiếp tục." : "Profile checked; valid values were added to empty fields. Review the measurements before continuing.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Không thể tải hồ sơ."); }
+    finally { setProfileLoading(false); }
+  };
 
   const totalSteps = 3;
 
@@ -102,32 +124,58 @@ export function MultiStepDiagnosisForm() {
 
   // ── HÀM SUBMIT DỮ LIỆU ĐÃ ĐƯỢC TỐI ƯU HÓA TOÀN DIỆN ──
   const handleSubmit = async () => {
+    if (submitting.current) return;
+    for (const step of [1, 2]) {
+      const issue = validateAssessment(formData, step, language === "vi");
+      if (issue) { setCurrentStep(step); setError(issue); return; }
+    }
+    submitting.current = true;
     setIsLoading(true);
     setError("");
-
-    // 1. Chọc localStorage rút mã Token thông hành ra
-    const token = localStorage.getItem("access_token");
+    setResult(null);
+    setSnapshot(null);
 
     try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error(language === "vi" ? "Vui lòng đăng nhập để thực hiện chẩn đoán." : "Please sign in to run a prediction.");
+      }
       const ageNum = parseFloat(formData.age);
       const bpNum = parseFloat(formData.trestbps);
+      const requiredNumbers = {
+        age: ageNum,
+        trestbps: bpNum,
+        chol: parseFloat(formData.chol),
+        thalch: parseFloat(formData.thalch),
+        oldpeak: parseFloat(formData.oldpeak),
+      };
+      if (Object.values(requiredNumbers).some((value) => !Number.isFinite(value))) {
+        throw new Error(language === "vi" ? "Vui lòng nhập đầy đủ các chỉ số dạng số." : "Please enter all required numeric values.");
+      }
+      const hasHeight = formData.height.trim() !== "";
+      const hasWeight = formData.weight.trim() !== "";
+      if (hasHeight !== hasWeight) {
+        throw new Error(language === "vi" ? "Vui lòng nhập cả chiều cao và cân nặng, hoặc để trống cả hai." : "Enter both height and weight, or leave both empty.");
+      }
+      const height = hasHeight ? parseFloat(formData.height) : null;
+      const weight = hasWeight ? parseFloat(formData.weight) : null;
       
       const payload = {
         age: ageNum,
         sex: formData.sex === "1" ? 1 : 0,
         trestbps: bpNum,
-        chol: parseFloat(formData.chol),
+        chol: requiredNumbers.chol,
         fbs: parseInt(formData.fbs),
-        thalch: parseFloat(formData.thalch),
+        thalch: requiredNumbers.thalch,
         exang: parseInt(formData.exang),
-        oldpeak: parseFloat(formData.oldpeak),
+        oldpeak: requiredNumbers.oldpeak,
         ...mapChestPain(formData.cp),
         ...mapRestEcg(formData.restecg),
         ...mapSlope(formData.slope),
         bp_age_ratio: bpNum / ageNum,
-        include_bmi: true,
-        height: parseFloat(formData.height),
-        weight: parseFloat(formData.weight),
+        include_bmi: hasHeight && hasWeight,
+        height,
+        weight,
         ...getAgeBinning(ageNum),
         ca_missing: 0,
         thal_missing: 0,
@@ -152,34 +200,31 @@ export function MultiStepDiagnosisForm() {
         body: JSON.stringify(payload),
       });
 
-      // Bắt lỗi Token không hợp lệ hoặc hết hạn ngay tại Client
-      if (response.status === 401) {
-        setError(
-          language === "vi"
-            ? "Phiên làm việc đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại!"
-            : "Session expired or unauthorized. Please log in again!"
-        );
-        return;
+      if (!response.ok) {
+        throw new Error(await apiErrorMessage(response));
       }
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.detail || "Prediction failed");
-      }
-
       setResult(data);
+      setSnapshot({ inputs: { ...formData }, result: data, createdAt: new Date().toISOString() });
     } catch (error) {
       setError(error instanceof Error ? error.message : "Prediction failed. Please try again.");
       console.error("Prediction error:", error);
     } finally {
       setIsLoading(false);
+      submitting.current = false;
     }
   };
 
-  const handleNext = () => { if (currentStep < totalSteps) setCurrentStep(currentStep + 1); };
-  const handlePrev = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
-  const handleReset = () => { setFormData(defaultFormData); setResult(null); setError(""); setCurrentStep(1); };
+  const handleNext = () => {
+    const issue = validateAssessment(formData, currentStep, language === "vi");
+    if (issue) { setError(issue); return; }
+    setError("");
+    if (currentStep < totalSteps) setCurrentStep(currentStep + 1);
+  };
+  const handlePrev = () => { setError(""); if (currentStep > 1) setCurrentStep(currentStep - 1); };
+  const handleReset = () => { setFormData(defaultFormData); setResult(null); setSnapshot(null); setProfileNotice(""); setError(""); setCurrentStep(1); };
 
   const isStep1Valid = formData.age && formData.sex;
   const isStep2Valid = formData.trestbps && formData.chol && formData.thalch && formData.oldpeak;
@@ -195,81 +240,71 @@ export function MultiStepDiagnosisForm() {
   const stepIcons = [User, Activity, Stethoscope];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="assessment-container mx-auto max-w-7xl">
+      <div className="assessment-screen">
       {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-center gap-4">
+      <div className="glass-panel mb-7 rounded-xl px-4 py-5 sm:px-7">
+        <div className="grid grid-cols-3 gap-2 sm:gap-5">
           {[1, 2, 3].map((step) => {
             const StepIcon = stepIcons[step - 1];
+            const labels = language === "vi" ? ["Thông tin cơ bản", "Chỉ số tim mạch", "Thông tin xét nghiệm"] : ["Basic info", "Cardiovascular", "Test information"];
             return (
-              <div key={step} className="flex items-center">
+              <div key={step} aria-current={step === currentStep ? "step" : undefined} className={`relative flex flex-col items-start gap-2 rounded-lg p-2 transition sm:flex-row sm:items-center sm:gap-3 sm:p-3.5 ${step === currentStep ? "bg-sky-50 text-primary" : "text-slate-500"}`}>
                 <div
-                  className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-colors ${
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
                     step === currentStep
-                      ? "bg-primary border-primary text-primary-foreground"
+                      ? "bg-sky-500 text-white"
                       : step < currentStep
-                      ? "bg-success border-success text-success-foreground"
-                      : "bg-muted border-border text-muted-foreground"
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-slate-100 text-slate-400"
                   }`}
                 >
-                  {step < currentStep ? (
-                    <CheckCircle className="w-6 h-6" />
-                  ) : (
-                    <StepIcon className="w-6 h-6" />
-                  )}
+                  {step < currentStep ? <CheckCircle className="h-5 w-5" /> : <StepIcon className="h-5 w-5" />}
                 </div>
-                {step < 3 && (
-                  <div
-                    className={`w-16 h-1 mx-2 rounded ${
-                      step < currentStep ? "bg-success" : "bg-border"
-                    }`}
-                  />
-                )}
+                <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.15em] ${step === currentStep ? "text-primary" : "text-slate-400"}`}>Bước {step}</p><p className="mt-1 text-xs font-medium sm:text-sm">{labels[step - 1]}</p></div>
               </div>
             );
           })}
         </div>
-        <div className="flex justify-center gap-16 mt-3">
-          <span className="text-sm text-muted-foreground">
-            {language === "vi" ? "Thông tin cơ bản" : "Basic Info"}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {language === "vi" ? "Chỉ số tim mạch" : "Cardiovascular"}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {language === "vi" ? "Triệu chứng" : "Symptoms"}
-          </span>
-        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-primary" />
+      <div className="grid items-start gap-6 lg:grid-cols-5">
+        <div className="min-w-0 lg:col-span-3">
+          <Card className="overflow-hidden border-slate-200/70 bg-white/90">
+            <CardHeader className="border-b border-slate-100 bg-white p-6">
+              <CardTitle className="flex items-center gap-3 text-xl font-semibold tracking-tight text-slate-950">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-500"><Heart className="h-5 w-5" /></span>
                 {currentStep === 1 && (language === "vi" ? "Thông tin cơ bản" : "Basic Information")}
                 {currentStep === 2 && (language === "vi" ? "Chỉ số tim mạch" : "Cardiovascular Indicators")}
-                {currentStep === 3 && (language === "vi" ? "Triệu chứng & Chẩn đoán" : "Symptoms & Diagnosis")}
+                {currentStep === 3 && (language === "vi" ? "Thông tin xét nghiệm" : "Symptoms & Diagnosis")}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="ml-[52px] text-sm">
                 {language === "vi" 
                   ? `Bước ${currentStep} / ${totalSteps} - Vui lòng nhập đầy đủ thông tin`
                   : `Step ${currentStep} of ${totalSteps} - Please fill in all fields`
                 }
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6 sm:p-6">
+              <fieldset disabled={isLoading || profileLoading} className="min-w-0">
               {/* Step 1: Basic Info */}
               {currentStep === 1 && (
                 <div className="space-y-6">
+                  <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4">
+                    <Button variant="outline" size="sm" className="h-auto min-h-9 max-w-full whitespace-normal text-left" onClick={loadProfile} disabled={profileLoading}>
+                      {profileLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
+                      {language === "vi" ? "Lấy thông tin từ hồ sơ" : "Use profile information"}
+                    </Button>
+                    <p className="mt-2 text-xs leading-5 text-slate-600" role="status">{profileNotice || (language === "vi" ? "Điền nhanh các ô còn trống từ hồ sơ đã lưu. Bạn có thể chỉnh sửa trước khi gửi." : "Fill empty fields from your saved profile. You can edit the values before submitting.")}</p>
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="block_name">
-                      {language === "vi" ? "Tên phiên chẩn đoán (tuỳ chọn)" : "Diagnosis Session Name (optional)"}
+                      {language === "vi" ? "Tên lần đánh giá (tuỳ chọn)" : "Diagnosis Session Name (optional)"}
                     </Label>
                     <Input
                       id="block_name"
                       type="text"
+                      maxLength={100}
                       placeholder={language === "vi" ? "VD: Kiểm tra định kỳ tháng 4" : "E.g., April regular checkup"}
                       value={formData.name_prediction}
                       onChange={(e) => updateField("name_prediction", e.target.value)}
@@ -297,6 +332,7 @@ export function MultiStepDiagnosisForm() {
                         value={formData.sex}
                         onChange={(e) => updateField("sex", e.target.value)}
                       >
+                        <option value="" disabled>{language === "vi" ? "Chọn giới tính" : "Select sex"}</option>
                         <option value="1">{t("field.sex.male")}</option>
                         <option value="0">{t("field.sex.female")}</option>
                       </Select>
@@ -358,7 +394,7 @@ export function MultiStepDiagnosisForm() {
                       <Input
                         id="chol"
                         type="number"
-                        min="100"
+                        min="50"
                         max="600"
                         placeholder="VD: 200"
                         value={formData.chol}
@@ -374,8 +410,8 @@ export function MultiStepDiagnosisForm() {
                       <Input
                         id="thalch"
                         type="number"
-                        min="60"
-                        max="220"
+                        min="50"
+                        max="250"
                         placeholder="VD: 150"
                         value={formData.thalch}
                         onChange={(e) => updateField("thalch", e.target.value)}
@@ -471,14 +507,14 @@ export function MultiStepDiagnosisForm() {
               )}
 
               {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive mt-6">
+                <div role="alert" className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive mt-6">
                   <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                   {error}
                 </div>
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between mt-8">
+              <div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-slate-100 pt-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -512,24 +548,28 @@ export function MultiStepDiagnosisForm() {
                     ) : (
                       <>
                         <Heart className="mr-2 h-4 w-4" />
-                        {t("predict.submit")}
+                        {language === "vi" ? "Xem kết quả đánh giá" : "View assessment result"}
                       </>
                     )}
                   </Button>
                 )}
               </div>
+              </fieldset>
             </CardContent>
           </Card>
         </div>
 
         {/* Result Panel */}
-        <div className="lg:col-span-1">
-          <div className="sticky top-24">
+        <div className="min-w-0 lg:col-span-2">
+          <div className="sticky top-24 min-h-[420px]">
             <ResultDisplay result={result} onReset={handleReset} />
+            {snapshot && <AssessmentActions key={snapshot.createdAt} snapshot={snapshot} />}
           </div>
         </div>
       </div>
       <HeartChatbot latestResult={result} />
+      </div>
+      {snapshot && <AssessmentPrint snapshot={snapshot} />}
     </div>
   );
-} 
+}

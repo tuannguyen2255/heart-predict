@@ -1,145 +1,63 @@
 "use client";
-
 import Link from "next/link";
-import { useLanguage } from "@/lib/i18n/context";
-import { Header } from "@/components/header";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Heart, Activity, Shield, Zap, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Header } from "@/components/header";
+import { getAccessToken } from "@/lib/client-session";
+import { useLanguage } from "@/lib/i18n/context";
+import { ArrowRight, ClipboardList, History, UserRound, FileCheck2, HeartPulse, ChevronRight } from "lucide-react";
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { language } = useLanguage();
+  const vi = language === "vi";
   const [username, setUsername] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedUsername = localStorage.getItem("username");
-    setUsername(storedUsername);
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Header user={username ? { id: 0, email: "", full_name: username } : null} />
-      
-      <main>
-        {/* Hero Section */}
-        <section className="relative overflow-hidden py-20 lg:py-32">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-          <div className="container mx-auto px-4 relative">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary mb-8">
-                <Heart className="w-10 h-10 text-primary-foreground" />
-              </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 text-balance">
-                {t("home.title")}
-              </h1>
-              <p className="text-xl md:text-2xl text-primary font-medium mb-4">
-                {t("home.subtitle")}
-              </p>
-              <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto text-pretty">
-                {t("home.description")}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                {username ? (
-                  <Link href="/diagnosis">
-                    <Button size="lg" className="text-lg px-8">
-                      {t("home.startPrediction")}
-                      <ArrowRight className="ml-2 w-5 h-5" />
-                    </Button>
-                  </Link>
-                ) : (
-                  <>
-                    <Link href="/login">
-                      <Button size="lg" className="text-lg px-8">
-                        {t("auth.login")}
-                      </Button>
-                    </Link>
-                    <Link href="/register">
-                      <Button size="lg" variant="outline" className="text-lg px-8">
-                        {t("auth.register")}
-                      </Button>
-                    </Link>
-                  </>
-                )}
-              </div>
+  useEffect(() => { if (getAccessToken()) setUsername(localStorage.getItem("username")); }, []);
+  const destination = (path: string) => username ? path : "/login";
+  const services = [
+    { href: "/diagnosis", icon: ClipboardList, title: vi ? "Đánh giá nguy cơ" : "Risk assessment", text: vi ? "Nhập chỉ số, xem kết quả và lưu lại từng lần đánh giá." : "Enter indicators, review results and save your assessment.", action: vi ? "Bắt đầu đánh giá" : "Start assessment" },
+    { href: "/history", icon: History, title: vi ? "Lịch sử đánh giá" : "Assessment history", text: vi ? "Tra cứu các kết quả đã lưu theo tên hoặc mức nguy cơ." : "Find saved results by name or risk level.", action: vi ? "Tra cứu lịch sử" : "View history" },
+    { href: "/profile", icon: UserRound, title: vi ? "Hồ sơ sức khỏe" : "Health profile", text: vi ? "Cập nhật thông tin cơ bản để sử dụng cho lần đánh giá tiếp theo." : "Keep basic information ready for your next assessment.", action: vi ? "Xem hồ sơ" : "View profile" },
+  ];
+  const preparation = vi ? ["Tuổi, giới tính; chiều cao và cân nặng nếu có", "Huyết áp lúc nghỉ và kết quả cholesterol", "Thông tin điện tâm đồ, nghiệm pháp gắng sức"] : ["Age, sex; optional height and weight", "Resting blood pressure and cholesterol results", "ECG and exercise test information"];
+  const questions = vi ? [
+    ["Tôi cần chuẩn bị gì trước khi đánh giá?", "Chuẩn bị các chỉ số từ hồ sơ hoặc phiếu xét nghiệm của bạn. Biểu mẫu ghi rõ đơn vị cho từng trường. Với chỉ số chưa biết, hãy kiểm tra lại phiếu kết quả trước khi nhập."],
+    ["Kết quả có tự lưu vào lịch sử không?", "Sau khi xem kết quả, chọn “Lưu vào lịch sử”. Bạn cũng có thể chọn “In / lưu PDF” để lưu phiếu gồm kết quả và các thông tin đã nhập trên thiết bị."],
+    ["Tôi có thể sử dụng thông tin trong hồ sơ không?", "Có. Ở bước đầu của biểu mẫu, chọn “Lấy thông tin từ hồ sơ”. Hệ thống điền các ô còn trống; bạn cần kiểm tra lại chỉ số trước khi thực hiện đánh giá."],
+  ] : [
+    ["What should I prepare?", "Have your measurements and test reports ready. Check the unit shown for each field, and refer to your report when a value is unknown."],
+    ["Are results saved automatically?", "Choose “Save to history” after reviewing the result. Use “Print / save PDF” to keep the assessment and submitted inputs on your device."],
+    ["Can I reuse my profile information?", "Yes. Choose “Use profile information” in the first step to fill empty fields. Review the values before submitting a new assessment."],
+  ];
+  return <div className="app-shell">
+    <Header user={username ? { id: 0, email: "", full_name: username } : null} />
+    <main id="main-content">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1.2fr_1fr] lg:gap-20 lg:px-8">
+          <div className="self-center">
+            <p className="mb-4 flex items-center gap-2 text-sm font-semibold text-teal-700"><HeartPulse className="h-5 w-5" />{vi ? "CHĂM SÓC SỨC KHỎE TIM MẠCH" : "CARDIOVASCULAR HEALTH"}</p>
+            <h1 className="max-w-xl text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-[42px] sm:leading-[1.2]">{vi ? <>Chủ động theo dõi.<br /><span className="text-primary">Hiểu rõ sức khỏe của bạn.</span></> : <>Stay informed.<br /><span className="text-primary">Understand your heart health.</span></>}</h1>
+            <p className="mt-5 max-w-lg text-base leading-7 text-slate-600">{vi ? "Không gian quản lý thông tin sức khỏe, đánh giá nguy cơ tim mạch và tra cứu kết quả của bạn." : "Your space to manage health information, assess cardiovascular risk and review past results."}</p>
+            <div className="mt-7 flex flex-wrap items-center gap-4">
+              <Link className="action-link" href={destination("/diagnosis")}>{vi ? "Đánh giá nguy cơ" : "Assess risk"}<ArrowRight className="h-4 w-4" /></Link>
+              <a href="#huong-dan" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">{vi ? "Hướng dẫn sử dụng" : "How it works"}</a>
             </div>
+            {username && <p className="mt-5 text-sm text-slate-500">{vi ? "Xin chào," : "Welcome,"} <span className="font-medium text-slate-700">{username}</span></p>}
           </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-20 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="grid gap-8 md:grid-cols-3">
-              <Card className="bg-card border-border">
-                <CardContent className="pt-8 pb-6 text-center">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 text-primary mb-6">
-                    <Activity className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3">
-                    {t("home.features.accurate")}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {t("home.features.accurateDesc")}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border">
-                <CardContent className="pt-8 pb-6 text-center">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-success/10 text-success mb-6">
-                    <Zap className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3">
-                    {t("home.features.fast")}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {t("home.features.fastDesc")}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border">
-                <CardContent className="pt-8 pb-6 text-center">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-warning/10 text-warning mb-6">
-                    <Shield className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3">
-                    {t("home.features.secure")}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    {t("home.features.secureDesc")}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="py-20">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              San sang kiem tra suc khoe tim mach?
-            </h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Chi can vai buoc don gian, ban se nhan duoc ket qua du doan chinh xac tu mo hinh AI.
-            </p>
-            <Link href={username ? "/diagnosis" : "/register"}>
-              <Button size="lg">
-                {username ? "Bat dau chan doan" : "Dang ky ngay"}
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            </Link>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p>HeartGuard AI - Do an HK8 - Du doan benh tim mach</p>
+          <aside className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-[#edf5fa] px-6 py-5"><FileCheck2 className="h-6 w-6 text-primary" /><div><h2 className="font-semibold text-slate-900">{vi ? "Chuẩn bị trước khi bắt đầu" : "Before you begin"}</h2><p className="mt-1 text-sm text-slate-600">{vi ? "Sử dụng thông tin từ phiếu khám của bạn" : "Have your health records ready"}</p></div></div>
+            <ol className="divide-y divide-slate-200 px-6">{preparation.map((item, i) => <li key={item} className="flex items-start gap-4 py-5 text-sm leading-6 text-slate-700"><span className="shrink-0 font-semibold tabular-nums text-teal-700">0{i + 1}</span>{item}</li>)}</ol>
+            <p className="px-6 pb-5 text-xs leading-5 text-slate-500">{vi ? "Kết quả mang tính tham khảo, không thay thế chẩn đoán của bác sĩ." : "Results are for reference and do not replace a medical diagnosis."}</p>
+          </aside>
         </div>
-      </footer>
-    </div>
-  );
+      </section>
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8" aria-labelledby="services-title">
+        <h2 id="services-title" className="text-2xl font-semibold text-slate-900">{vi ? "Tiện ích sức khỏe" : "Health services"}</h2>
+        <p className="mb-6 mt-2 text-sm text-slate-600">{vi ? "Thông tin và kết quả được quản lý theo tài khoản của bạn." : "Your information and results, organised by account."}</p>
+        <div className="grid gap-5 md:grid-cols-3">{services.map(({ href, icon: Icon, title, text, action }) => <article key={href} className="flex flex-col rounded-lg border border-slate-200 bg-white p-6"><Icon className="mb-5 h-7 w-7 text-teal-700" strokeWidth={1.6} /><h3 className="text-lg font-semibold">{title}</h3><p className="mb-6 mt-2 text-sm leading-6 text-slate-600">{text}</p><Link href={destination(href)} className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 text-sm font-semibold text-primary hover:underline">{action}<ChevronRight className="h-4 w-4" /></Link></article>)}</div>
+      </section>
+      <section id="huong-dan" className="scroll-mt-24 border-y border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[.7fr_1.3fr] lg:gap-16 lg:px-8"><div><p className="mb-2 text-sm font-semibold text-teal-700">{vi ? "HƯỚNG DẪN" : "GETTING STARTED"}</p><h2 className="text-2xl font-semibold">{vi ? "Sử dụng HeartGuard" : "Using HeartGuard"}</h2><p className="mt-3 text-sm leading-6 text-slate-600">{vi ? "Những thông tin cần biết để hoàn thành và lưu lại một lần đánh giá." : "What to know before completing and saving an assessment."}</p></div><div className="divide-y divide-slate-200">{questions.map(([q, a], i) => <details key={q} className="group py-4 first:pt-0" open={i === 0}><summary className="cursor-pointer text-sm font-semibold leading-6 text-slate-800 marker:text-primary">{q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{a}</p></details>)}</div></div>
+      </section>
+    </main>
+    <footer className="mx-auto flex max-w-7xl flex-col justify-between gap-2 px-4 py-6 text-xs leading-5 text-slate-500 sm:flex-row sm:px-6 lg:px-8"><p>© {new Date().getFullYear()} HeartGuard</p><p>{vi ? "Thông tin sức khỏe • Đánh giá nguy cơ • Theo dõi kết quả" : "Health information • Risk assessment • Assessment history"}</p></footer>
+  </div>;
 }

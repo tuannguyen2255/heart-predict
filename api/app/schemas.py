@@ -37,7 +37,9 @@ class PredictionInput(BaseModel):
     trestbps:                 float = Field(..., ge=50, le=250)
     chol:                     float = Field(..., ge=50, le=600)
     thalch:                   float = Field(..., ge=50, le=250)
-    oldpeak:                  float = Field(..., ge=0, le=10)
+    # UCI data used to train this model includes negative ST-depression values
+    # (minimum -2.6), and the diagnosis form intentionally accepts them.
+    oldpeak:                  float = Field(..., ge=-5, le=10)
     fbs:                      int   = Field(0, ge=0, le=1)
     exang:                    int   = Field(0, ge=0, le=1)
     cp_asymptomatic:          int   = Field(0, ge=0, le=1)
@@ -86,7 +88,7 @@ class SaveHistoryInput(BaseModel):
 
 # ── Chatbot ───────────────────────────────────────────────────────────────────
 class ChatMessageInput(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1, max_length=4000)
 
 class ChatMessageOutput(BaseModel):
     reply: str

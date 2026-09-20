@@ -1,5 +1,7 @@
 "use client";
 
+import { getAccessToken } from "@/lib/client-session";
+
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
@@ -7,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Heart, AlertTriangle, CheckCircle, Save, RotateCcw } from "lucide-react";
+import { invalidateHistory } from "@/lib/history";
 import { API_ENDPOINTS } from "@/lib/api-config";
 
 interface PredictionFormProps {
@@ -40,25 +43,6 @@ const defaultFormData = {
   include_bmi: true
 };
 
-// Hàm "quét" token toàn diện: Tìm trong cả LocalStorage và Cookie
-const getAuthToken = () => {
-  if (typeof window === "undefined") return null;
-  
-  // 1. Kiểm tra localStorage trước (Dành cho login-form-api)
-  const localToken = localStorage.getItem("token") || localStorage.getItem("access_token");
-  if (localToken) return localToken;
-
-  // 2. Kiểm tra Cookie (Dành cho login-form sử dụng Next.js API)
-  const value = `; ${document.cookie}`;
-  const partsAuth = value.split(`; auth_token=`);
-  if (partsAuth.length === 2) return partsAuth.pop()?.split(';').shift() || null;
-
-  const partsAccess = value.split(`; access_token=`);
-  if (partsAccess.length === 2) return partsAccess.pop()?.split(';').shift() || null;
-
-  return null;
-};
-
 export default function PredictionForm({ userId }: PredictionFormProps) {
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +65,7 @@ export default function PredictionForm({ userId }: PredictionFormProps) {
     setSaved(false);
     
     try {
-      const currentToken = getAuthToken();
+      const currentToken = getAccessToken();
       if (!currentToken) {
         throw new Error("Phiên làm việc đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại!");
       }
@@ -128,12 +112,12 @@ export default function PredictionForm({ userId }: PredictionFormProps) {
     setError("");
 
     try {
-      const currentToken = getAuthToken();
+      const currentToken = getAccessToken();
       if (!currentToken) {
         throw new Error("Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại để lưu kết quả!");
       }
 
-      const response = await fetch("/api/prediction/history", {
+      const response = await fetch(API_ENDPOINTS.historyPredictions, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,6 +137,7 @@ export default function PredictionForm({ userId }: PredictionFormProps) {
         throw new Error(errData.detail || "Không thể lưu kết quả chẩn đoán");
       }
       
+      void invalidateHistory();
       setSaved(true);
     } catch (err: any) {
       setError(err.message || "Lỗi khi lưu kết quả vào hệ thống.");

@@ -4,86 +4,59 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    
+    --background: 210 25% 97%;
+    --foreground: 215 30% 18%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    
+    --card-foreground: 215 30% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    
-    --primary: 346 77% 50%;
+    --popover-foreground: 215 30% 18%;
+    --primary: 205 86% 33%;
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    
-    --destructive: 0 84% 60%;
+    --secondary: 180 45% 94%;
+    --secondary-foreground: 180 70% 24%;
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 205 60% 95%;
+    --accent-foreground: 205 86% 30%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 71% 45%;
+    --success: 160 70% 30%;
     --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
+    --warning: 38 85% 40%;
     --warning-foreground: 0 0% 100%;
-    
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 346 77% 50%;
-    
-    --radius: 0.75rem;
+    --border: 210 22% 87%;
+    --input: 210 22% 80%;
+    --ring: 205 86% 33%;
+    --radius: .5rem;
   }
-
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    
-    --card: 222 47% 13%;
-    --card-foreground: 210 40% 98%;
-    
-    --popover: 222 47% 13%;
-    --popover-foreground: 210 40% 98%;
-    
-    --primary: 346 77% 55%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    
-    --destructive: 0 63% 55%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
-    
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 346 77% 55%;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; min-height: 100vh; }
+  ::selection { @apply bg-sky-100 text-slate-900; }
+  a, button, summary { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2; }
 }
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  
-  body {
-    @apply bg-background text-foreground antialiased;
-  }
+@layer components {
+  .app-shell { @apply min-h-screen; }
+  .glass-panel { @apply border border-slate-200 bg-white; }
+  .eyebrow { @apply inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-teal-700; }
+  .page-heading { @apply text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl; }
+  .field-group { @apply space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 focus-within:border-primary; }
+  .action-link { @apply inline-flex min-h-11 items-center justify-center gap-3 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary/90; }
+}
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+}
+.assessment-print { display: none; }
+@media print {
+  body:has(.assessment-print) { background: white; }
+  body:has(.assessment-print) header, body:has(.assessment-print) main > :not(.assessment-container), .assessment-screen { display: none !important; }
+  .assessment-print { display: block !important; color: black; background: white; font-size: 11pt; }
+  .assessment-print h1 { font-size: 20pt; font-weight: 600; }
+  .assessment-print table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .assessment-print td, .assessment-print th { padding: 7px 10px; text-align: left; border: 1px solid #cbd5e1; }
+  .assessment-print tr { break-inside: avoid; }
+  @page { margin: 16mm; size: A4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }

@@ -57,7 +57,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+      },
+      boxShadow: {
+        soft: "0 20px 55px -28px rgba(15, 23, 42, 0.28)",
+        glow: "0 20px 55px -25px rgba(12, 97, 157, 0.18)",
       },
     },
   },

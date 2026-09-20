@@ -1,0 +1,14 @@
+{
+  "age": 55,
+  "sex": 1,
+  "trestbps": 130,
+  "chol": 230,
+  "thalch": 150,
+  "oldpeak": 1.0,
+  "fbs": 0,
+  "exang": 0,
+  "cp_atypical_angina": 1,
+  "restecg_normal": 1,
+  "slope_flat": 1,
+  "bp_age_ratio": 2.363636
+}

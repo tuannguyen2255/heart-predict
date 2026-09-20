@@ -5,7 +5,7 @@
 ## 📌 Tính năng chính
 
 - **Dự đoán nguy cơ tim mạch**: Nhập các chỉ số lâm sàng (huyết áp, cholesterol, nhịp tim, ...) để nhận kết quả dự đoán và mức độ rủi ro từ mô hình Random Forest.
-- **Chatbot AI tư vấn**: Trả lời các câu hỏi sức khỏe liên quan đến tim mạch, tích hợp Groq Cloud (LLaMA 3.3).
+- **Chatbot AI tư vấn**: Trả lời các câu hỏi sức khỏe liên quan đến tim mạch, tích hợp Groq Cloud (model cấu hình qua `GROQ_MODEL`).
 - **Quản lý tài khoản**: Đăng ký / đăng nhập / xác thực bằng JWT, quản lý hồ sơ cá nhân.
 - **Lịch sử chẩn đoán**: Lưu và tra cứu lại các lần dự đoán trước đó.
 - **Gói Premium**: Giới hạn số lượt chat AI theo hạng tài khoản (free / premium), thanh toán qua QR.
@@ -20,7 +20,7 @@
 | Machine Learning | scikit-learn (Random Forest), joblib |
 | Cơ sở dữ liệu | MySQL |
 | Xác thực | JWT (jose / PyJWT), bcrypt |
-| Chatbot AI | Groq Cloud API (LLaMA 3.3 70B) |
+| Chatbot AI | Groq Cloud API (`openai/gpt-oss-20b` mặc định) |
 | Triển khai | Vercel (frontend), Render/Docker (backend) |
 
 ## 📂 Cấu trúc thư mục
@@ -56,7 +56,7 @@ heart-predict/
 
 ### 1. Yêu cầu
 - Node.js ≥ 18
-- Python ≥ 3.10
+- Python ≥ 3.11 (model dùng scikit-learn 1.8.0; môi trường local hiện tại là Python 3.13)
 - MySQL Server
 
 ### 2. Frontend (Next.js)
@@ -90,6 +90,14 @@ Xem chi tiết trong [`.env.example`](./.env.example). Các biến quan trọng:
 - `JWT_SECRET_KEY` — khóa ký JWT (bắt buộc set, không dùng giá trị mặc định)
 - `GROQ_API_KEY` — API key cho chatbot AI
 - `MODEL_DIR` — đường dẫn tới thư mục chứa model `.pkl`
+
+## Nâng cấp hiệu năng và notebook EDA
+
+Giao diện mới, tính năng đã triển khai và hướng phát triển: [GIAO_DIEN_VA_TINH_NANG_MOI.md](docs/GIAO_DIEN_VA_TINH_NANG_MOI.md).
+
+Xem [hướng dẫn hiệu năng](docs/PERFORMANCE.md) để áp dụng index, cấu hình pool/CDN và chạy load test.
+Notebook mới: [heart_disease_eda.ipynb](notebook/heart_disease_eda.ipynb).
+Trong môi trường `.venv` của dự án, chạy `python scripts/run_eda.py` để xuất thống kê, biểu đồ và bản notebook đã thực thi vào `notebook/eda_outputs/`.
 
 ## 🧠 Mô hình Machine Learning
 

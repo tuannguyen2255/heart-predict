@@ -1,336 +1,38 @@
 "use client";
-
 import { useLanguage } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  AlertTriangle,
-  CheckCircle,
-  Bot,
-  Stethoscope,
-  Heart,
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  RefreshCcw,
-} from "lucide-react";
+import { ClipboardList, RefreshCcw, Info } from "lucide-react";
+import { AssessmentResult } from "@/lib/assessment";
 
-interface ResultDetail {
-  probability: number;
-  risk_level: string;
-  message: string;
-}
-
-interface PredictionResult {
-  ai_prediction: ResultDetail;
-  clinical_evaluation: ResultDetail;
-  prediction: number;
-  bmi: number | null;
-}
-
-interface ResultDisplayProps {
-  result: PredictionResult | null;
-  onReset: () => void;
-}
-
-export function ResultDisplay({ result, onReset }: ResultDisplayProps) {
+export function ResultDisplay({ result, onReset }: { result: AssessmentResult | null; onReset: () => void }) {
   const { language } = useLanguage();
-
-  if (!result) return null;
-
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case "THAP":
-      case "THẤP":
-      case "LOW":
-        return {
-          bg: "bg-emerald-500/10",
-          border: "border-emerald-500/30",
-          text: "text-emerald-600 dark:text-emerald-400",
-          icon: "text-emerald-500",
-          gradient: "from-emerald-500/20 to-emerald-600/10",
-        };
-      case "TRUNG BINH":
-      case "TRUNG BÌNH":
-      case "MEDIUM":
-        return {
-          bg: "bg-amber-500/10",
-          border: "border-amber-500/30",
-          text: "text-amber-600 dark:text-amber-400",
-          icon: "text-amber-500",
-          gradient: "from-amber-500/20 to-amber-600/10",
-        };
-      case "CAO":
-      case "HIGH":
-        return {
-          bg: "bg-orange-500/10",
-          border: "border-orange-500/30",
-          text: "text-orange-600 dark:text-orange-400",
-          icon: "text-orange-500",
-          gradient: "from-orange-500/20 to-orange-600/10",
-        };
-      case "RAT CAO":
-      case "RẤT CAO":
-      case "VERY HIGH":
-        return {
-          bg: "bg-red-500/10",
-          border: "border-red-500/30",
-          text: "text-red-600 dark:text-red-400",
-          icon: "text-red-500",
-          gradient: "from-red-500/20 to-red-600/10",
-        };
-      default:
-        return {
-          bg: "bg-muted",
-          border: "border-border",
-          text: "text-muted-foreground",
-          icon: "text-muted-foreground",
-          gradient: "from-muted to-muted",
-        };
-    }
+  const vi = language === "vi";
+  const riskStyle = (level: string) => {
+    if (["THẤP", "THAP", "LOW"].includes(level)) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    if (["TRUNG BÌNH", "TRUNG BINH", "MEDIUM"].includes(level)) return "border-amber-200 bg-amber-50 text-amber-800";
+    if (["CAO", "HIGH"].includes(level)) return "border-orange-200 bg-orange-50 text-orange-800";
+    if (["RẤT CAO", "RAT CAO", "VERY HIGH"].includes(level)) return "border-red-200 bg-red-50 text-red-800";
+    return "border-slate-200 bg-slate-50 text-slate-700";
   };
-
-  const getTrendIcon = (probability: number) => {
-    if (probability < 0.3) return <TrendingDown className="h-4 w-4" />;
-    if (probability > 0.6) return <TrendingUp className="h-4 w-4" />;
-    return <Minus className="h-4 w-4" />;
-  };
-
-  if (!result) {
-    return (
-      <Card className="h-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5 text-primary" />
-            {language === "vi" ? "Ket qua du doan" : "Prediction Result"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <div className="relative mb-6">
-              <Heart className="h-16 w-16 opacity-10" />
-              <Activity className="h-8 w-8 absolute bottom-0 right-0 opacity-20" />
-            </div>
-            <p className="text-sm text-center max-w-[200px]">
-              {language === "vi"
-                ? "Nhap thong tin suc khoe va nhan du doan de xem ket qua"
-                : "Enter your health data and click predict to see results"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Use data from API response
-  const aiData = result.ai_prediction;
-  const clinicalData = result.clinical_evaluation;
-  
-  const aiColors = getRiskColor(aiData.risk_level);
-  const clinicalColors = getRiskColor(clinicalData.risk_level);
-
-  return (
-    <Card className="h-full overflow-hidden">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2">
-          <Heart className="h-5 w-5 text-primary" />
-          {language === "vi" ? "Ket qua phan tich" : "Analysis Result"}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Side-by-side comparison */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* AI Prediction Card */}
-          <div className={`relative overflow-hidden rounded-xl border ${aiColors.border} ${aiColors.bg} p-4`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${aiColors.gradient} opacity-50`} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  AI
-                </span>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className={`mb-2 ${aiColors.icon}`}>
-                  {result.prediction === 1 ? (
-                    <AlertTriangle className="h-10 w-10" />
-                  ) : (
-                    <CheckCircle className="h-10 w-10" />
-                  )}
-                </div>
-                <span className={`text-sm font-bold ${aiColors.text}`}>
-                  {aiData.risk_level}
-                </span>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-2xl font-bold text-foreground">
-                    {(aiData.probability * 100).toFixed(0)}%
-                  </span>
-                  <span className={aiColors.text}>
-                    {getTrendIcon(aiData.probability)}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground mt-1">
-                  {language === "vi" ? "Xac suat rui ro" : "Risk probability"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Clinical Assessment Card */}
-          <div className={`relative overflow-hidden rounded-xl border ${clinicalColors.border} ${clinicalColors.bg} p-4`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${clinicalColors.gradient} opacity-50`} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-white">
-                  <Stethoscope className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {language === "vi" ? "Lam sang" : "Clinical"}
-                </span>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className={`mb-2 ${clinicalColors.icon}`}>
-                  {clinicalData.probability >= 0.5 ? (
-                    <AlertTriangle className="h-10 w-10" />
-                  ) : (
-                    <CheckCircle className="h-10 w-10" />
-                  )}
-                </div>
-                <span className={`text-sm font-bold ${clinicalColors.text}`}>
-                  {clinicalData.risk_level}
-                </span>
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-2xl font-bold text-foreground">
-                    {(clinicalData.probability * 100).toFixed(0)}%
-                  </span>
-                  <span className={clinicalColors.text}>
-                    {getTrendIcon(clinicalData.probability)}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground mt-1">
-                  {language === "vi" ? "Diem lam sang" : "Clinical score"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress bars for both AI and Clinical */}
-        <div className="space-y-4">
-          {/* AI Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Bot className="h-3 w-3" />
-                {language === "vi" ? "Rui ro AI" : "AI Risk"}
-              </span>
-              <span className={`font-medium ${aiColors.text}`}>
-                {(aiData.probability * 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  aiData.probability >= 0.7
-                    ? "bg-gradient-to-r from-red-400 to-red-600"
-                    : aiData.probability >= 0.5
-                    ? "bg-gradient-to-r from-orange-400 to-orange-600"
-                    : aiData.probability >= 0.3
-                    ? "bg-gradient-to-r from-amber-400 to-amber-600"
-                    : "bg-gradient-to-r from-emerald-400 to-emerald-600"
-                }`}
-                style={{ width: `${aiData.probability * 100}%` }}
-              />
-            </div>
-          </div>
-          
-          {/* Clinical Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Stethoscope className="h-3 w-3" />
-                {language === "vi" ? "Rui ro lam sang" : "Clinical Risk"}
-              </span>
-              <span className={`font-medium ${clinicalColors.text}`}>
-                {(clinicalData.probability * 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  clinicalData.probability >= 0.7
-                    ? "bg-gradient-to-r from-red-400 to-red-600"
-                    : clinicalData.probability >= 0.5
-                    ? "bg-gradient-to-r from-orange-400 to-orange-600"
-                    : clinicalData.probability >= 0.3
-                    ? "bg-gradient-to-r from-amber-400 to-amber-600"
-                    : "bg-gradient-to-r from-emerald-400 to-emerald-600"
-                }`}
-                style={{ width: `${clinicalData.probability * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* BMI if available */}
-        {result.bmi && (
-          <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg border border-border/50">
-            <span className="text-sm text-muted-foreground">
-              {language === "vi" ? "Chi so BMI" : "BMI Index"}
-            </span>
-            <span className="font-semibold text-foreground">{result.bmi}</span>
-          </div>
-        )}
-
-        {/* Clinical Recommendation */}
-        <div className={`p-4 rounded-xl border ${clinicalColors.border} ${clinicalColors.bg}`}>
-          <div className="flex items-start gap-3">
-            <div className={`mt-0.5 ${clinicalColors.icon}`}>
-              <Stethoscope className="h-5 w-5" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <h4 className="text-sm font-semibold text-foreground">
-                {language === "vi" ? "Danh gia lam sang" : "Clinical Evaluation"}
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {clinicalData.message}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Message */}
-        <div className={`p-4 rounded-xl border ${aiColors.border} ${aiColors.bg}`}>
-          <div className="flex items-start gap-3">
-            <div className={`mt-0.5 ${aiColors.icon}`}>
-              <Bot className="h-5 w-5" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <h4 className="text-sm font-semibold text-foreground">
-                {language === "vi" ? "Phan tich AI" : "AI Analysis"}
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {aiData.message}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Reset Button */}
-        <Button
-          className="w-full"
-          variant="outline"
-          onClick={onReset}
-        >
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          {language === "vi" ? "Du doan moi" : "New Prediction"}
-        </Button>
-      </CardContent>
-    </Card>
-  );
+  return <Card className="overflow-hidden" aria-live="polite">
+    <CardHeader className="border-b border-slate-200 bg-slate-50">
+      <CardTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-primary" />{vi ? "Kết quả đánh giá" : "Assessment result"}</CardTitle>
+    </CardHeader>
+    {!result ? <CardContent className="space-y-5 pt-6">
+      <p className="text-sm leading-6 text-slate-600">{vi ? "Kết quả sẽ xuất hiện tại đây sau khi bạn hoàn tất và gửi biểu mẫu." : "Your result will appear here after you complete and submit the form."}</p>
+      <ol className="space-y-4 text-sm text-slate-600">{(vi ? ["Điền thông tin cơ bản", "Nhập chỉ số từ phiếu khám", "Kiểm tra thông tin và đánh giá"] : ["Enter basic information", "Add measurements from your records", "Review and submit"]).map((text, i) => <li className="flex items-center gap-3" key={text}><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-200 text-xs text-primary">{i + 1}</span>{text}</li>)}</ol>
+      <p className="border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500">{vi ? "Các ô có dấu * là bắt buộc. Chiều cao và cân nặng có thể để trống cả hai." : "Fields marked * are required. Height and weight may both be left empty."}</p>
+    </CardContent> : <CardContent className="space-y-5 pt-6">
+      <div className={`rounded-md border px-4 py-3 ${riskStyle(result.ai_prediction.risk_level)}`}><p className="text-xs">{vi ? "Mức nguy cơ do hệ thống trả về" : "Risk level returned by the system"}</p><p className="mt-1 text-xl font-semibold">{result.ai_prediction.risk_level}</p></div>
+      <dl className="divide-y divide-slate-100 text-sm">
+        <div className="flex justify-between gap-4 py-3"><dt className="text-slate-600">{vi ? "Giá trị mô hình trả về" : "Model output"}</dt><dd className="font-semibold tabular-nums">{(result.ai_prediction.probability * 100).toFixed(1)}%</dd></div>
+        <div className="flex justify-between gap-4 py-3"><dt className="text-slate-600">{vi ? "Điểm lâm sàng" : "Clinical score"}</dt><dd className="font-semibold tabular-nums">{(result.clinical_evaluation.probability * 10).toFixed(1)} / 10</dd></div>
+        <div className="flex justify-between gap-4 py-3"><dt className="text-slate-600">BMI</dt><dd className="font-semibold tabular-nums">{result.bmi?.toFixed(1) ?? (vi ? "Chưa có dữ liệu" : "Not provided")}</dd></div>
+      </dl>
+      <div><h3 className="mb-2 text-sm font-semibold">{vi ? "Nhận xét từ hệ thống" : "System feedback"}</h3><p className="text-sm leading-6 text-slate-600">{result.ai_prediction.message}</p></div>
+      <div className="flex items-start gap-2 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500"><Info className="mt-0.5 h-4 w-4 shrink-0" /><p>{vi ? "Kết quả mang tính tham khảo, không thay thế chẩn đoán của bác sĩ." : "For reference only. This does not replace a medical diagnosis."}</p></div>
+      <Button variant="outline" className="h-auto min-h-11 w-full whitespace-normal py-2" onClick={onReset}><RefreshCcw className="h-4 w-4 shrink-0" />{vi ? "Tạo lần đánh giá mới" : "Start a new assessment"}</Button>
+    </CardContent>}
+  </Card>;
 }

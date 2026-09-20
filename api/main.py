@@ -6,6 +6,7 @@ import os
 from contextlib import asynccontextmanager
 
 import joblib
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector.pooling import MySQLConnectionPool
@@ -13,9 +14,12 @@ from mysql.connector.pooling import MySQLConnectionPool
 from app.config import (
     ALLOWED_ORIGINS,
     DB_CONFIG,
+    DB_POOL_SIZE,
     FEATURES_PATH,
     GROQ_API_KEY,
     GROQ_MODEL,
+    GROQ_CONNECT_TIMEOUT_SECONDS,
+    GROQ_READ_TIMEOUT_SECONDS,
     MODEL_PATH,
     SCALER_PATH,
 )
@@ -49,7 +53,7 @@ async def lifespan(app: FastAPI):
         raise e
 
     try:
-        state.db_pool = MySQLConnectionPool(pool_name="mypool", pool_size=5, **DB_CONFIG)
+        state.db_pool = MySQLConnectionPool(pool_name="mypool", pool_size=DB_POOL_SIZE, **DB_CONFIG)
         logger.info("✅ Database connection pool khởi tạo thành công")
         init_db()
         logger.info("✅ Cơ sở dữ liệu ứng dụng cá nhân đã sẵn sàng")
@@ -59,12 +63,18 @@ async def lifespan(app: FastAPI):
 
     if GROQ_API_KEY and GROQ_API_KEY.startswith("gsk_"):
         state.groq_ready = True
-        logger.info("✅ GROQ Cloud AI đã sẵn sàng | Model: %s", GROQ_MODEL)
+        logger.info("✅ Đã cấu hình Groq | Model: %s (kết nối được kiểm tra khi gửi tin nhắn)", GROQ_MODEL)
     else:
         state.groq_ready = False
         logger.warning("⚠️  GROQ_API_KEY không hợp lệ — Chatbot tư vấn sẽ tạm khóa.")
 
-    yield
+    timeout = httpx.Timeout(connect=GROQ_CONNECT_TIMEOUT_SECONDS, read=GROQ_READ_TIMEOUT_SECONDS, write=10, pool=5)
+    async with httpx.AsyncClient(timeout=timeout, limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)) as client:
+        state.http_client = client
+        try:
+            yield
+        finally:
+            state.http_client = None
 
     logger.info("👋 Đang đóng kết nối và dừng hệ thống...")
 

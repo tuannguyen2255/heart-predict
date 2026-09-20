@@ -8,7 +8,10 @@ logger = logging.getLogger(__name__)
 
 def get_conn():
     """Lấy kết nối từ connection pool."""
-    return state.db_pool.get_connection()
+    try:
+        return state.db_pool.get_connection()
+    except mysql.connector.errors.PoolError as exc:
+        raise HTTPException(status_code=503, detail="Database busy; please retry", headers={"Retry-After": "1"}) from exc
 
 
 def get_user_id(cursor, username: str) -> int:
@@ -50,7 +53,9 @@ def init_db():
                 role          ENUM('user', 'admin') DEFAULT 'user',
                 is_premium    TINYINT(1) DEFAULT 0,
                 premium_until DATETIME NULL,
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_users_email (email),
+                INDEX idx_users_phone (phone)
             )
         ''')
 
@@ -66,6 +71,7 @@ def init_db():
                 probability       FLOAT,
                 risk_level        VARCHAR(50),
                 timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_prediction_user_time (user_id, timestamp, id),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         ''')
@@ -78,6 +84,8 @@ def init_db():
                 role      ENUM('user','assistant') NOT NULL,
                 content   TEXT NOT NULL,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_chat_user_time (user_id, timestamp, id),
+                INDEX idx_chat_user_role_time (user_id, role, timestamp),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         ''')

@@ -13,6 +13,9 @@ __pycache__/
 
 # Jupyter Notebook checkpoints
 *.ipynb_checkpoints/
+notebook/eda_outputs/
+reports/load-tests/
+reports/ui/
 
 # Env & config
 .env

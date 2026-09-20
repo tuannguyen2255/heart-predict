@@ -17,7 +17,7 @@ router = APIRouter(tags=["Users"])
 
 
 @router.post("/register", status_code=201)
-async def register_user(body: RegisterRequest):
+def register_user(body: RegisterRequest):
     """Đăng ký tài khoản mới."""
     if body.password != body.confirm_password:
         raise HTTPException(status_code=400, detail="Mật khẩu xác nhận không khớp")
@@ -63,7 +63,7 @@ async def register_user(body: RegisterRequest):
 
 
 @router.post("/login")
-async def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
+def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
     """Đăng nhập bằng OAuth2 chuẩn hóa."""
     conn = get_conn()
     cursor = conn.cursor(dictionary=True)
@@ -83,7 +83,7 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get("/information/me", tags=["User Profile"])
-async def get_user_profile(current_user: str = Depends(get_current_user)):
+def get_user_profile(current_user: str = Depends(get_current_user)):
     """Lấy thông tin hồ sơ sức khỏe cá nhân."""
     conn = get_conn()
     cursor = conn.cursor(dictionary=True)
@@ -104,7 +104,7 @@ async def get_user_profile(current_user: str = Depends(get_current_user)):
 
 
 @router.put("/user/profile", tags=["User Profile"])
-async def update_user_profile(profile_data: ProfileUpdateInput, current_user: str = Depends(get_current_user)):
+def update_user_profile(profile_data: ProfileUpdateInput, current_user: str = Depends(get_current_user)):
     """Cập nhật thông tin sinh học động bằng Prepared Statement."""
     conn = get_conn()
     cursor = conn.cursor()

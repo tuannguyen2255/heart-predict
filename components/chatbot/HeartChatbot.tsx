@@ -1,5 +1,8 @@
 "use client";
 
+import { getAccessToken } from "@/lib/client-session";
+import { apiErrorMessage } from "@/lib/api-errors";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +48,7 @@ function PredictionCard({ result }: { result: PredictionResult }) {
     "THẤP":       "bg-emerald-50  border-emerald-200  text-emerald-800",
     "TRUNG BÌNH": "bg-amber-50 border-amber-200 text-amber-800",
     "CAO":        "bg-orange-50 border-orange-200 text-orange-800",
-    "RẤT CAO":    "bg-rose-50    border-rose-200    text-rose-800",
+    "RẤT CAO":    "bg-red-50    border-red-200    text-red-800",
   };
 
   const currentStyle = COLOR_MAP[result.risk_level.toUpperCase()] || COLOR_MAP["THẤP"];
@@ -59,11 +62,11 @@ function PredictionCard({ result }: { result: PredictionResult }) {
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="p-2.5 bg-white/60 rounded-lg backdrop-blur-sm">
           <span className="text-slate-500 block mb-1">Mức độ</span>
-          <span className="font-extrabold text-sm">{result.risk_level}</span>
+          <span className="font-semibold text-sm">{result.risk_level}</span>
         </div>
         <div className="p-2.5 bg-white/60 rounded-lg backdrop-blur-sm">
           <span className="text-slate-500 block mb-1">Xác suất AI</span>
-          <span className="font-extrabold text-sm">{Math.round(result.probability * 100)}%</span>
+          <span className="font-semibold text-sm">{Math.round(result.probability * 100)}%</span>
         </div>
         <div className="p-3 bg-white/60 rounded-lg col-span-2 backdrop-blur-sm">
           <div className="flex justify-between mb-2 font-semibold">
@@ -83,11 +86,12 @@ function PredictionCard({ result }: { result: PredictionResult }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function HeartChatbot({ latestResult, initiallyOpen = false }: { latestResult?: any; initiallyOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [chatError, setChatError] = useState("");
   const [chatStatus, setChatStatus] = useState<ChatStatus>({
     is_premium: false,
     used_today: 0,
@@ -100,12 +104,12 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
 
   const fetchChatStatus = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+      const token = getAccessToken();
+      if (!token) { setChatError("Vui lòng đăng nhập để sử dụng trò chuyện."); return; }
       const res = await fetch(API_ENDPOINTS.CHAT_STATUS || "/api/user/chat-status", {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!res.ok) return;
+      if (!res.ok) { setChatError(await apiErrorMessage(res)); return; }
       setChatStatus(await res.json());
     } catch (error) {
       console.error("Lỗi fetchChatStatus:", error);
@@ -114,12 +118,12 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
 
   const fetchChatHistory = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+      const token = getAccessToken();
+      if (!token) { setChatError("Vui lòng đăng nhập để sử dụng trò chuyện."); return; }
       const res = await fetch(API_ENDPOINTS.chatHistory || "/api/chatbot/history", {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      if (!res.ok) return;
+      if (!res.ok) { setChatError(await apiErrorMessage(res)); return; }
       setMessages(await res.json());
     } catch (error) {
       console.error("Lỗi fetchChatHistory:", error);
@@ -142,16 +146,16 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
     if (!input.trim() || isLoading || isLocked) return;
 
     const userMsg = input.trim();
+    const pendingMessage: Message = { role: "user", content: userMsg };
+    setChatError("");
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setMessages((prev) => [...prev, pendingMessage]);
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
       if (!token) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Vui lòng đăng nhập lại hệ thống." }]);
-        setIsLoading(false);
-        return;
+        throw new Error("Vui lòng đăng nhập để sử dụng trò chuyện.");
       }
 
       const response = await fetch(API_ENDPOINTS.CHATBOT || "/api/chatbot", {
@@ -161,11 +165,15 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ message: userMsg, latest_result: latestResult }),
+        signal: AbortSignal.timeout(75000),
       });
 
-      if (!response.ok) throw new Error("Gửi tin nhắn thất bại");
+      if (!response.ok) throw new Error(await apiErrorMessage(response));
 
       const data = await response.json();
+      if (typeof data.response !== "string" || !data.response.trim()) {
+        throw new Error("Dịch vụ AI trả về phản hồi trống. Vui lòng thử lại.");
+      }
       
       setMessages((prev) => [
         ...prev,
@@ -177,27 +185,32 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
       ]);
       await fetchChatStatus();
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "❌ Mất kết nối tới AI bác sĩ." }]);
+      setMessages((prev) => prev.filter((message) => message !== pendingMessage));
+      setInput(userMsg);
+      setChatError(err instanceof Error && err.name === "TimeoutError"
+        ? "Yêu cầu quá thời gian chờ. Câu hỏi đã được giữ lại để bạn thử gửi lại."
+        : err instanceof TypeError ? "Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại."
+        : err instanceof Error ? err.message : "Không thể gửi tin nhắn. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans">
       {isOpen && (
-        <Card className="w-[400px] h-[600px] flex flex-col shadow-2xl border-0 ring-1 ring-slate-200/50 animate-in slide-in-from-bottom-6 duration-300 rounded-2xl overflow-hidden mb-4">
+        <Card className="w-[min(400px,calc(100vw-2rem))] h-[min(600px,calc(100dvh-7rem))] flex flex-col shadow-sm border-0 ring-1 ring-slate-200/50 animate-in slide-in-from-bottom-6 duration-300 rounded-2xl overflow-hidden mb-4">
           
           {/* Header */}
-          <CardHeader className="bg-gradient-to-r from-rose-500 to-rose-600 text-white p-4 flex flex-row items-center justify-between space-y-0 shadow-md z-10">
+          <CardHeader className="bg-primary text-white p-4 flex flex-row items-center justify-between space-y-0 shadow-md z-10">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-full backdrop-blur-md border border-white/20 shadow-inner relative">
                 <Bot className="h-5 w-5 text-white" />
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-rose-600" />
+
               </div>
               <div>
-                <CardTitle className="text-base font-bold tracking-wide">Bác sĩ Tim mạch AI</CardTitle>
-                <p className="text-[11px] text-rose-100 font-medium mt-0.5 opacity-90">
+                <CardTitle className="text-base font-bold tracking-wide">Trợ lý sức khỏe</CardTitle>
+                <p className="text-[11px] text-sky-100 font-medium mt-0.5 opacity-90">
                   {chatStatus.remaining > 0 ? `Còn ${chatStatus.remaining} lượt tư vấn/giờ` : "Đang quá tải"}
                 </p>
               </div>
@@ -206,6 +219,7 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
               variant="ghost" 
               size="icon" 
               onClick={() => setIsOpen(false)}
+              aria-label="Đóng trò chuyện"
               className="text-white/80 hover:text-white hover:bg-white/20 rounded-full h-8 w-8 transition-colors"
             >
               <X className="h-4 w-4" />
@@ -213,15 +227,20 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
           </CardHeader>
 
           {/* Nội dung khung Chat */}
-          <CardContent className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-5 scrollbar-thin scrollbar-thumb-slate-200">
+          <CardContent className="min-h-0 flex-1 overflow-y-auto p-4 bg-slate-50 space-y-5 scrollbar-thin scrollbar-thumb-slate-200">
+            {chatError && (
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {chatError}
+              </div>
+            )}
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 animate-in fade-in duration-700">
-                <div className="h-16 w-16 rounded-full bg-rose-100/50 flex items-center justify-center border-4 border-white shadow-sm mb-4">
-                  <Heart className="h-7 w-7 text-rose-500 fill-rose-500/20" />
+                <div className="h-16 w-16 rounded-full bg-sky-100/50 flex items-center justify-center border-4 border-white shadow-sm mb-4">
+                  <Heart className="h-7 w-7 text-sky-500 fill-sky-500/20" />
                 </div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">HeartGuard AI Xin chào!</h3>
+                <h3 className="text-base font-bold text-slate-800 mb-1">Bạn cần hỗ trợ thông tin gì?</h3>
                 <p className="text-xs text-slate-500 leading-relaxed max-w-[260px]">
-                  Tôi là trợ lý ảo chuyên khoa tim mạch. Hãy chia sẻ chỉ số hoặc cảm giác của bạn để tôi tư vấn nhé!
+                  Bạn có thể hỏi về các chỉ số trong biểu mẫu hoặc kết quả đánh giá. Phản hồi được tạo tự động và chỉ mang tính tham khảo.
                 </p>
               </div>
             ) : (
@@ -233,7 +252,7 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
                   <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
                     msg.role === "user" 
                       ? "bg-slate-800 text-white" 
-                      : "bg-white border border-rose-100 text-rose-500"
+                      : "bg-white border border-sky-100 text-sky-500"
                   }`}>
                     {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
@@ -248,7 +267,7 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
                         msg.content
                       ) : (
                         // Render Markdown chuẩn chỉnh nhờ plugin typography
-                        <div className="prose prose-sm prose-slate max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0 marker:text-rose-400">
+                        <div className="prose prose-sm prose-slate max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-li:my-0 marker:text-sky-400">
                           <ReactMarkdown>{cleanBotMessage(msg.content)}</ReactMarkdown>
                         </div>
                       )}
@@ -262,13 +281,13 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
             {/* Typing Indicator hiện đại */}
             {isLoading && (
               <div className="flex gap-3 max-w-[85%] mr-auto items-center animate-in fade-in duration-300">
-                <div className="h-8 w-8 rounded-full bg-white border border-rose-100 text-rose-500 flex items-center justify-center shadow-sm">
+                <div className="h-8 w-8 rounded-full bg-white border border-sky-100 text-sky-500 flex items-center justify-center shadow-sm">
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="px-4 py-3 bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-1.5">
-                  <div className="h-1.5 w-1.5 bg-rose-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="h-1.5 w-1.5 bg-rose-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="h-1.5 w-1.5 bg-rose-400 rounded-full animate-bounce"></div>
+                  <div className="h-1.5 w-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="h-1.5 w-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="h-1.5 w-1.5 bg-sky-400 rounded-full animate-bounce"></div>
                 </div>
               </div>
             )}
@@ -289,20 +308,22 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
             <form onSubmit={handleSubmit} className="flex gap-2 items-end relative">
               <Input
                 type="text"
+                maxLength={4000}
                 placeholder={isLocked ? "Đã khóa tạm thời..." : "Nhập câu hỏi tại đây..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading || isLocked}
-                className={`flex-1 min-h-[44px] rounded-full pl-4 pr-12 text-sm focus-visible:ring-rose-500 focus-visible:ring-offset-0 ${
+                className={`flex-1 min-h-[44px] rounded-full pl-4 pr-12 text-sm focus-visible:ring-sky-500 focus-visible:ring-offset-0 ${
                   isLocked ? "bg-red-50/50 text-red-400 border-red-100" : "bg-slate-50 border-slate-200"
                 }`}
               />
               <Button 
                 type="submit" 
                 size="icon" 
+                aria-label="Gửi tin nhắn"
                 disabled={isLoading || isLocked || !input.trim()}
                 className={`absolute right-1 bottom-1 h-9 w-9 rounded-full transition-all ${
-                  input.trim() ? "bg-rose-500 hover:bg-rose-600 text-white shadow-md" : "bg-slate-200 text-slate-400"
+                  input.trim() ? "bg-sky-500 hover:bg-sky-600 text-white shadow-md" : "bg-slate-200 text-slate-400"
                 }`}
               >
                 <Send className="h-4 w-4 ml-0.5" />
@@ -315,8 +336,10 @@ export default function HeartChatbot({ latestResult }: { latestResult?: any }) {
       {/* Nút Tròn Kích Hoạt Chatbot */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`h-14 w-14 rounded-full shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 ${
-          isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-gradient-to-tr from-rose-500 to-rose-600 hover:shadow-rose-500/25"
+        aria-label={isOpen ? "Thu gọn trợ lý" : "Mở trò chuyện"}
+        aria-expanded={isOpen}
+        className={`ml-auto flex h-14 w-14 rounded-full shadow-sm transition-colors ${
+          isOpen ? "bg-slate-800 hover:bg-slate-700" : "bg-primary hover:bg-primary/90"
         }`}
         size="icon"
       >
