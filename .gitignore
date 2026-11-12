@@ -1,8 +1,9 @@
 # Node.js
 node_modules/
 
-# Next.js build
+# Next.js build & TypeScript cache
 .next/
+tsconfig.tsbuildinfo
 
 # Python
 .venv/
@@ -11,7 +12,7 @@ __pycache__/
 *.pyo
 *.egg-info/
 
-# Jupyter Notebook checkpoints
+# Jupyter Notebook checkpoints & generated outputs
 *.ipynb_checkpoints/
 notebook/eda_outputs/
 reports/load-tests/
@@ -19,14 +20,15 @@ reports/ui/
 
 # Env & config
 .env
+.env.local
 *.log
+kaggle.json
 
-#backup files
+# Backup & archives
+*.rar
+*.bak
+replacements.txt
 
 # OS-specific
 .DS_Store
 Thumbs.db
-
-replacements.txt
-.env
-kaggle.json
