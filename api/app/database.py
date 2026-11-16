@@ -70,6 +70,7 @@ def init_db():
                 clinical_score    FLOAT,
                 probability       FLOAT,
                 risk_level        VARCHAR(50),
+                inputs_json       JSON NULL,
                 timestamp         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_prediction_user_time (user_id, timestamp, id),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -107,6 +108,13 @@ def init_db():
             )
         ''')
         
+        cursor.execute(
+            "SELECT COUNT(*) FROM information_schema.columns "
+            "WHERE table_schema = DATABASE() AND table_name = 'prediction_history' AND column_name = 'inputs_json'"
+        )
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("ALTER TABLE prediction_history ADD COLUMN inputs_json JSON NULL")
+
         conn.commit()
         logger.info("Toàn bộ cơ sở dữ liệu hệ thống AI cá nhân đã sẵn sàng")
         

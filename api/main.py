@@ -1,82 +1,77 @@
 """
 main.py
 """
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
-
 import joblib
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mysql.connector.pooling import MySQLConnectionPool
-
 from app.config import (
     ALLOWED_ORIGINS,
     DB_CONFIG,
     DB_POOL_SIZE,
-    FEATURES_PATH,
     GROQ_API_KEY,
     GROQ_MODEL,
     GROQ_CONNECT_TIMEOUT_SECONDS,
     GROQ_READ_TIMEOUT_SECONDS,
-    MODEL_PATH,
-    SCALER_PATH,
+    MODEL_CARD_V2_PATH,
+    PIPELINE_V2_PATH,
 )
 from app.database import init_db
-from app.routers.chatbot     import router as chatbot_router
+from app.routers.chatbot import router as chatbot_router
 from app.routers.predictions import router as predictions_router
-from app.routers.users       import router as users_router
+from app.routers.users import router as users_router
 from app.state import state
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Hệ thống AI Dự đoán Tim mạch đang khởi động...")
-
-    for label, path in [("Model", MODEL_PATH), ("Scaler", SCALER_PATH), ("Features", FEATURES_PATH)]:
+    logger.info("Khoi dong He thong Du doan Tim mach (v2)...")  
+    for label, path in [("Pipeline v2", PIPELINE_V2_PATH), ("Model Card v2", MODEL_CARD_V2_PATH)]:
         if not os.path.exists(path):
-            logger.critical("❌ Không tìm thấy %s tại: %s. Hệ thống dừng.", label, path)
-            raise FileNotFoundError(f"Missing {label} file.")
-
+            logger.critical("Khong tim thay %s tai: %s. He thong dung.", label, path)
+            raise FileNotFoundError(f"Missing {label} file: {path}")
     try:
-        state.model         = joblib.load(MODEL_PATH)
-        state.scaler        = joblib.load(SCALER_PATH)
-        # SỬA LẠI ĐÂY: Gán chính xác vào state.feature_names để đồng bộ dữ liệu
-        state.feature_names = joblib.load(FEATURES_PATH) 
-        logger.info("✅ ML Artifacts loaded thành công (%d features)", len(state.feature_names))
+        state.pipeline_v2 = joblib.load(PIPELINE_V2_PATH)
+        with open(MODEL_CARD_V2_PATH, "r", encoding="utf-8") as f:
+            state.model_card = json.load(f)
+        logger.info(
+            "Da nap Pipeline v2 (%s, threshold=%.4f)",
+            state.model_card.get("model"),
+            state.model_card.get("threshold", 0.5),
+        )
     except Exception as e:
-        logger.critical("❌ Lỗi nạp ML Artifacts: %s", str(e))
-        raise e
-
+        logger.critical("Loi nap Pipeline v2: %s", str(e))
+        raise
     try:
         state.db_pool = MySQLConnectionPool(pool_name="mypool", pool_size=DB_POOL_SIZE, **DB_CONFIG)
-        logger.info("✅ Database connection pool khởi tạo thành công")
+        logger.info("Khoi tao Database connection pool thanh cong")
         init_db()
-        logger.info("✅ Cơ sở dữ liệu ứng dụng cá nhân đã sẵn sàng")
+        logger.info("Co so du lieu da san sang")
     except Exception as e:
-        logger.critical("❌ Kết nối Database thất bại: %s", str(e))
-        raise e
-
+        logger.critical("Ket noi Database that bai: %s", str(e))
+        raise
     if GROQ_API_KEY and GROQ_API_KEY.startswith("gsk_"):
         state.groq_ready = True
-        logger.info("✅ Đã cấu hình Groq | Model: %s (kết nối được kiểm tra khi gửi tin nhắn)", GROQ_MODEL)
+        logger.info("Da cau hinh Groq | Model: %s", GROQ_MODEL)
     else:
         state.groq_ready = False
-        logger.warning("⚠️  GROQ_API_KEY không hợp lệ — Chatbot tư vấn sẽ tạm khóa.")
-
+        logger.warning("GROQ_API_KEY khong hop le - Chatbot tu van se tam khoa.")
     timeout = httpx.Timeout(connect=GROQ_CONNECT_TIMEOUT_SECONDS, read=GROQ_READ_TIMEOUT_SECONDS, write=10, pool=5)
-    async with httpx.AsyncClient(timeout=timeout, limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)) as client:
+    async with httpx.AsyncClient(
+        timeout=timeout,
+        limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+    ) as client:
         state.http_client = client
         try:
             yield
         finally:
             state.http_client = None
-
-    logger.info("👋 Đang đóng kết nối và dừng hệ thống...")
+    logger.info("Da dong ket noi va dung he thong.")
 
 
 app = FastAPI(

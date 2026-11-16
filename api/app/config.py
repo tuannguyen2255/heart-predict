@@ -50,6 +50,8 @@ MODEL_DIR     = os.getenv("MODEL_DIR", r"E:\heart predict\models")
 MODEL_PATH    = os.path.join(MODEL_DIR, "random_forest_model.pkl")
 FEATURES_PATH = os.path.join(MODEL_DIR, "feature_names.pkl")
 SCALER_PATH   = os.path.join(MODEL_DIR, "heart_scaler.pkl")
+PIPELINE_V2_PATH   = os.path.join(MODEL_DIR, "v2", "pipeline.joblib")
+MODEL_CARD_V2_PATH = os.path.join(MODEL_DIR, "v2", "model_card.json")
 
 # ── Validation Regex ──────────────────────────────────────────────────────────
 PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{9,15}$')
