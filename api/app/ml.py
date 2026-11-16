@@ -73,5 +73,5 @@ def run_inference(model, scaler, feature_dict: dict, feature_names: list) -> Tup
     scaled = scaler.transform(df)
     
     prediction = int(model.predict(scaled)[0])
-    probability = float(model.predict_proba(scaled)[0][prediction])
+    probability = float(model.predict_proba(scaled)[0][1])  # Lấy xác suất dự đoán cho nhãn "1" (có bệnh tim)
     return prediction, probability

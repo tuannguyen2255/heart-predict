@@ -39,7 +39,9 @@ FREE_CHAT_LIMIT    = int(os.getenv("FREE_CHAT_LIMIT", "10"))
 PREMIUM_CHAT_LIMIT = int(os.getenv("PREMIUM_CHAT_LIMIT", "20"))
 
 # ── JWT Auth ──────────────────────────────────────────────────────────────────
-JWT_SECRET     = os.getenv("JWT_SECRET_KEY", "heartguard_secret_2026")
+JWT_SECRET     = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET_KEY must be set in the environment")
 JWT_ALGORITHM  = "HS256"
 JWT_EXPIRE_MIN = int(os.getenv("JWT_EXPIRE_MIN", 60))
 
