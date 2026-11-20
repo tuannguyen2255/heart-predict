@@ -3,12 +3,33 @@ import { API_ENDPOINTS } from "@/lib/api-config";
 import { getAccessToken } from "@/lib/client-session";
 
 export const HISTORY_PAGE_SIZE = 20;
+
+export interface HistoryInputs {
+  age?: string | number | null;
+  sex?: string | number | null;
+  height?: string | number | null;
+  weight?: string | number | null;
+  trestbps?: string | number | null;
+  chol?: string | number | null;
+  thalch?: string | number | null;
+  oldpeak?: string | number | null;
+  fbs?: string | number | null;
+  exang?: string | number | null;
+  cp?: string | null;
+  restecg?: string | null;
+  slope?: string | null;
+  bmi?: number | null;
+}
+
 export interface HistoryItem {
   id: number;
   name_prediction: string;
   prediction_result: number;
   risk_level: string;
   timestamp: string | null;
+  clinical_score?: number | null;
+  probability?: number | null;
+  inputs?: HistoryInputs | null;
 }
 
 export function readToken() {

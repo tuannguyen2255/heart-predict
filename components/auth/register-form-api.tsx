@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { API_ENDPOINTS } from "@/lib/api-config";
+import { API_ENDPOINTS, CURRENT_TERMS_VERSION } from "@/lib/api-config";
 import { clearSession } from "@/lib/client-session";
-import { Heart, Loader2, AlertCircle, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Heart, Loader2, AlertCircle, Eye, EyeOff, CheckCircle, ShieldAlert } from "lucide-react";
 
 export function RegisterFormAPI() {
   const { t, language } = useLanguage();
@@ -19,6 +19,8 @@ export function RegisterFormAPI() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [researchConsent, setResearchConsent] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -54,6 +56,16 @@ export function RegisterFormAPI() {
       return;
     }
 
+    if (!acceptedTerms || !researchConsent) {
+      setError(
+        language === "vi"
+          ? "Vui lòng đọc và đánh dấu xác nhận đủ 2 mục điều khoản trước khi đăng ký."
+          : "Please review and check both consent boxes before registering."
+      );
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Gửi request đăng ký dạng JSON body lên API Backend
       const response = await fetch(API_ENDPOINTS.register || "/api/register", {
@@ -65,6 +77,10 @@ export function RegisterFormAPI() {
           confirm_password: formData.confirmPassword,
           email: formData.email || null,
           phone: formData.phone || null,
+          accepted_terms: acceptedTerms,
+          age_confirmed: acceptedTerms,
+          research_consent: researchConsent,
+          terms_version: CURRENT_TERMS_VERSION,
         }),
       });
 
@@ -233,9 +249,66 @@ export function RegisterFormAPI() {
               </p>
             )}
           </div>
+
+          {/* Tóm tắt 5 dòng + Checkbox xác nhận điều khoản (không tick sẵn) */}
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-xs leading-5 text-slate-700">
+            <div className="flex items-center gap-2 font-semibold text-slate-900">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-sky-600" />
+              <span>
+                {language === "vi"
+                  ? `Lưu ý trước khi tạo tài khoản (${CURRENT_TERMS_VERSION})`
+                  : `Before creating an account (${CURRENT_TERMS_VERSION})`}
+              </span>
+            </div>
+            <ul className="list-disc space-y-1 pl-4 text-[11.5px] text-slate-600">
+              <li>Nguyên mẫu nghiên cứu cá nhân (miễn phí), <strong>không phải thiết bị y tế</strong> và không thay thế bác sĩ.</li>
+              <li>Tuyệt đối <strong>không tự ý ngưng/tăng/giảm thuốc</strong> theo kết quả trên web; triệu chứng cấp tính hãy gọi <strong>115</strong>.</li>
+              <li>Khuyến khích dùng tên ẩn danh và dữ liệu mẫu; hạn chế nhập họ tên thật, CCCD hay hồ sơ bệnh án.</li>
+              <li>Nội dung trò chuyện AI và kết quả gần nhất được xử lý qua máy chủ bên thứ ba (Groq).</li>
+              <li>Bạn có quyền tự xóa toàn bộ tài khoản &amp; dữ liệu bất cứ lúc nào hoặc liên hệ <code>tuannguyen2205@gmail.com</code>.</li>
+            </ul>
+
+            <div className="space-y-2 border-t border-slate-200 pt-3">
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="acceptedTerms"
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  disabled={isLoading}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="text-[12px] leading-5 text-slate-700">
+                  Tôi xác nhận <strong>từ đủ 18 tuổi trở lên</strong>, đã đọc và đồng ý{" "}
+                  <Link href="/terms#terms" target="_blank" className="font-semibold text-sky-700 underline underline-offset-2">
+                    Điều khoản sử dụng
+                  </Link>{" "}
+                  và{" "}
+                  <Link href="/terms#privacy" target="_blank" className="font-semibold text-sky-700 underline underline-offset-2">
+                    Chính sách bảo vệ dữ liệu
+                  </Link>{" "}
+                  ({CURRENT_TERMS_VERSION}).
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <input
+                  id="researchConsent"
+                  type="checkbox"
+                  checked={researchConsent}
+                  onChange={(e) => setResearchConsent(e.target.checked)}
+                  disabled={isLoading}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="text-[12px] leading-5 text-slate-700">
+                  Tôi hiểu đây là công cụ nghiên cứu tham khảo, <strong>không thay thế chẩn đoán hay điều trị của bác sĩ</strong>, và tự nguyện tham gia trải nghiệm.
+                </span>
+              </label>
+            </div>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-5 px-7 pb-8 sm:px-9">
-          <Button type="submit" className="h-12 w-full" disabled={isLoading}>
+          <Button type="submit" className="h-12 w-full" disabled={isLoading || !acceptedTerms || !researchConsent}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

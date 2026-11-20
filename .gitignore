@@ -22,6 +22,7 @@ reports/ui/
 .env
 .env.local
 *.log
+logs/
 kaggle.json
 
 # Backup & archives
@@ -32,3 +33,10 @@ replacements.txt
 # OS-specific
 .DS_Store
 Thumbs.db
+
+#data
+.data
+
+.upgrade/
+.docs
+.admin_system

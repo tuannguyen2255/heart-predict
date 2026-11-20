@@ -12,6 +12,18 @@ class RegisterRequest(BaseModel):
     confirm_password: str
     email:            Optional[str] = None
     phone:            Optional[str] = None
+    accepted_terms:   bool = False
+    age_confirmed:    bool = False
+    research_consent: bool = False
+    terms_version:    Optional[str] = None
+
+class AcceptTermsRequest(BaseModel):
+    terms_version:    str
+    age_confirmed:    bool = True
+    research_consent: bool = True
+
+class DeleteAccountRequest(BaseModel):
+    reason:           str = Field(..., min_length=5, max_length=500)
 
 class PasswordChange(BaseModel):
     new_password: str

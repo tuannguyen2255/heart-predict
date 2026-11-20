@@ -37,6 +37,10 @@ if not 1 <= GROQ_MAX_COMPLETION_TOKENS <= 4096:
 # ── Chatbot Limits ────────────────────────────────────────────────────────────
 FREE_CHAT_LIMIT    = int(os.getenv("FREE_CHAT_LIMIT", "10"))
 PREMIUM_CHAT_LIMIT = int(os.getenv("PREMIUM_CHAT_LIMIT", "20"))
+CHATBOT_DISABLED   = os.getenv("CHATBOT_DISABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+# ── Legal / Consent ───────────────────────────────────────────────────────────
+CURRENT_TERMS_VERSION = os.getenv("CURRENT_TERMS_VERSION", "beta-v1.0")
 
 # ── JWT Auth ──────────────────────────────────────────────────────────────────
 JWT_SECRET     = os.getenv("JWT_SECRET_KEY")

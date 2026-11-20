@@ -3,8 +3,10 @@
 import { useLanguage } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, RefreshCcw, Info, Activity, Gauge, HeartPulse } from "lucide-react";
+import { ClipboardList, RefreshCcw, Info, Activity, Gauge, HeartPulse, Users } from "lucide-react";
 import { AssessmentResult } from "@/lib/assessment";
+import { MedicalDisclaimer } from "@/components/ui/medical-disclaimer";
+
 
 export function ResultDisplay({ result, onReset }: { result: AssessmentResult | null; onReset: () => void }) {
   const { language } = useLanguage();
@@ -26,11 +28,16 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
   };
 
   const getBmiCategory = (bmi: number) => {
-    if (bmi < 18.5) return { label: vi ? "Gầy" : "Underweight", color: "text-amber-600", percent: 25 };
-    if (bmi < 23) return { label: vi ? "Bình thường" : "Normal", color: "text-emerald-600", percent: 50 };
-    if (bmi < 25) return { label: vi ? "Tiền béo phì" : "Overweight", color: "text-amber-600", percent: 75 };
-    return { label: vi ? "Béo phì" : "Obese", color: "text-rose-600", percent: 95 };
+    if (bmi < 18.5) return { label: vi ? "Gầy" : "Underweight", color: "text-amber-600" };
+    if (bmi < 23) return { label: vi ? "Bình thường" : "Normal", color: "text-emerald-600" };
+    if (bmi < 25) return { label: vi ? "Tiền béo phì" : "Overweight", color: "text-amber-600" };
+    return { label: vi ? "Béo phì" : "Obese", color: "text-rose-600" };
   };
+
+  // Mốc tham chiếu từ dữ liệu UCI (n = 918): 44.7% khỏe (0), 55.3% có nguy cơ (1)
+  const POPULATION_HEALTHY_PCT = 44.7;
+  const userHealthyPct = result ? Math.max(0, Math.min(100, (1 - result.ai_prediction.probability) * 100)) : 0;
+  const healthyDiff = userHealthyPct - POPULATION_HEALTHY_PCT;
 
   return (
     <Card className="overflow-hidden shadow-sm" aria-live="polite">
@@ -70,7 +77,7 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
           </p>
         </CardContent>
       ) : (
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-5 pt-6">
           {/* Badge mức nguy cơ */}
           <div className={`rounded-lg border px-4 py-3.5 ${riskStyle(result.ai_prediction.risk_level)}`}>
             <p className="text-xs font-medium uppercase tracking-wider opacity-90">
@@ -79,18 +86,72 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
             <p className="mt-1 text-2xl font-bold tracking-tight">{result.ai_prediction.risk_level}</p>
           </div>
 
-          {/* 1. Biểu đồ Visual: Thanh đo xác suất nguy cơ AI */}
+          {/* Dashboard mini: Đối chiếu với tập dữ liệu nghiên cứu UCI */}
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                <Users className="h-4 w-4 text-sky-600" />
+                {vi ? "Đối chiếu tập nghiên cứu UCI" : "Comparison vs. UCI Cohort"}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  healthyDiff >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                }`}
+              >
+                {healthyDiff >= 0 ? `+${healthyDiff.toFixed(1)}%` : `${healthyDiff.toFixed(1)}%`}
+              </span>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div>
+                <div className="mb-1 flex justify-between">
+                  <span className="font-medium text-slate-700">{vi ? "Điểm tham khảo mô phỏng" : "Estimated reference score"}</span>
+                  <span className="font-bold tabular-nums text-emerald-700">{userHealthyPct.toFixed(1)}%</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${Math.max(4, userHealthyPct)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 flex justify-between">
+                  <span className="text-slate-500">{vi ? "Nhóm không ghi nhận bệnh (UCI, n=918)" : "Non-disease share in UCI (n=918)"}</span>
+                  <span className="font-semibold tabular-nums text-slate-600">{POPULATION_HEALTHY_PCT}%</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-slate-400"
+                    style={{ width: `${POPULATION_HEALTHY_PCT}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] leading-4 text-slate-500">
+              {healthyDiff >= 0
+                ? vi
+                  ? `Điểm tham khảo mô phỏng cao hơn ${healthyDiff.toFixed(1)} điểm % so với tỷ lệ không ghi nhận bệnh trong tập dữ liệu nghiên cứu UCI (không đại diện cho dân số chung).`
+                  : `Estimated reference score is ${healthyDiff.toFixed(1)} pts above the UCI research cohort non-disease share (not representative of the general population).`
+                : vi
+                  ? `Điểm tham khảo mô phỏng thấp hơn ${Math.abs(healthyDiff).toFixed(1)} điểm % so với mức tham chiếu của tập nghiên cứu UCI — bạn có thể cân nhắc trao đổi thêm với bác sĩ.`
+                  : `Estimated reference score is ${Math.abs(healthyDiff).toFixed(1)} pts below the UCI research reference — consider discussing with a physician.`}
+            </p>
+          </div>
+
+          {/* 1. Biểu đồ Visual: Thanh đo mức ước lượng nguy cơ AI */}
           <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50/60 p-4">
             <div className="flex items-center justify-between text-xs font-semibold">
               <span className="flex items-center gap-1.5 text-slate-700">
                 <Gauge className="h-4 w-4 text-primary" />
-                {vi ? "Xác suất mô hình AI" : "AI Predicted Probability"}
+                {vi ? "Mức ước lượng nguy cơ (AI)" : "Estimated AI Risk Score"}
               </span>
               <span className="text-base font-bold text-slate-900 tabular-nums">
                 {(result.ai_prediction.probability * 100).toFixed(1)}%
               </span>
             </div>
-            {/* Visual Progress Bar */}
             <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
               <div
                 className={`h-full transition-all duration-700 ease-out ${getRiskColor(result.ai_prediction.probability * 100)}`}
@@ -98,9 +159,9 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
               />
             </div>
             <div className="flex justify-between text-[10px] text-slate-400">
-              <span>0% ({vi ? "An toàn" : "Safe"})</span>
+              <span>0% ({vi ? "Mức thấp" : "Low"})</span>
               <span>50%</span>
-              <span>100% ({vi ? "Rất cao" : "High"})</span>
+              <span>100% ({vi ? "Rất cao" : "Very high"})</span>
             </div>
           </div>
 
@@ -116,7 +177,6 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
                 <span className="text-xs font-normal text-slate-500">/ 10</span>
               </span>
             </div>
-            {/* Visual Segments */}
             <div className="grid grid-cols-10 gap-1">
               {Array.from({ length: 10 }).map((_, i) => {
                 const score = result.clinical_evaluation.probability * 10;
@@ -174,10 +234,7 @@ export function ResultDisplay({ result, onReset }: { result: AssessmentResult | 
             <p>{result.ai_prediction.message}</p>
           </div>
 
-          <div className="flex items-start gap-2 pt-2 text-[11px] leading-4 text-slate-500">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <p>{vi ? "Kết quả mang tính tham khảo, không thay thế chẩn đoán của bác sĩ." : "For reference only. This does not replace a medical diagnosis."}</p>
-          </div>
+          <MedicalDisclaimer language={vi ? "vi" : "en"} compact />
 
           <Button variant="outline" className="h-10 w-full text-xs font-semibold" onClick={onReset}>
             <RefreshCcw className="mr-2 h-3.5 w-3.5" />

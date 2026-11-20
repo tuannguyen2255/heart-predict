@@ -1,0 +1,23 @@
+1
+00:00:00,881 --> 00:00:14,991
+Xin chào các bạn! Hôm nay mình sẽ giới thiệu nhanh HeartGuard, hệ thống nghiên cứu hỗ trợ ước lượng nguy cơ tim mạch kết hợp trí tuệ nhân tạo và trợ lý hỏi đáp sức khỏe. Lưu ý đây là phiên bản thử nghiệm chỉ mang tính tham khảo.
+
+2
+00:00:15,591 --> 00:00:24,041
+Đầu tiên, bạn chỉ cần tạo một tài khoản mới với tên đăng nhập và mật khẩu, sau đó đăng nhập để lưu trữ và theo dõi lịch sử đánh giá cá nhân.
+
+3
+00:00:24,641 --> 00:00:37,361
+Tại giao diện đánh giá, bạn nhập các chỉ số cơ bản như tuổi, giới tính, chiều cao, cân nặng, cùng các chỉ số tim mạch như huyết áp, cholesterol và nhịp tim tối đa, rồi nhấn xem kết quả đánh giá nguy cơ.
+
+4
+00:00:37,962 --> 00:00:51,782
+Ngay lập tức, hệ thống trả về kết quả kép gồm phân tích từ mô hình học máy và thang điểm lâm sàng, kèm chỉ số BMI và khuyến nghị chi tiết. Bạn có thể lưu phiếu kết quả vào lịch sử hoặc in thành bản PDF chuẩn A4.
+
+5
+00:00:52,382 --> 00:01:02,992
+Điểm nổi bật tiếp theo là Trợ lý sức khỏe AI ngay góc màn hình. Bạn có thể đặt câu hỏi để được giải thích dễ hiểu hơn về các chỉ số vừa nhập cũng như gợi ý lối sống lành mạnh.
+
+6
+00:01:03,593 --> 00:01:20,273
+Toàn bộ các lần đánh giá đều được lưu gọn gàng tại mục Lịch sử để tiện tra cứu lại bất cứ lúc nào. Rất mong nhận được trải nghiệm và góp ý của bạn trong đợt thử nghiệm này. Lưu ý hệ thống chỉ mang tính tham khảo và không thay thế bác sĩ. Cảm ơn bạn đã theo dõi!

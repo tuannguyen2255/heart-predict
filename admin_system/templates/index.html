@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HeartGuard Admin Control Center — Quản trị & Giám sát An toàn Pilot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .tab-active { background: #0284c7; color: #ffffff; box-shadow: 0 1px 3px rgba(2,132,199,0.3); }
+    .tab-idle { color: #475569; background: #ffffff; }
+    .tab-idle:hover { background: #f1f5f9; color: #0f172a; }
+    pre::-webkit-scrollbar { height: 6px; width: 6px; }
+    pre::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900">
+
+  <!-- LOGIN OVERLAY -->
+  <div id="login-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-2xl">
+      <div class="mb-5 flex items-center gap-3">
+        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-600 text-white font-bold text-lg shadow">
+          HG
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">HeartGuard Admin System</h2>
+          <p class="text-xs text-slate-500">Cổng quản trị nội bộ • Chỉ cho phép Localhost (127.0.0.1)</p>
+        </div>
+      </div>
+
+      <div id="login-error" class="mb-4 hidden rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700"></div>
+
+      <button
+        id="btn-local-unlock"
+        type="button"
+        class="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 text-xs font-bold text-white shadow hover:bg-sky-700 transition"
+      >
+        <span>⚡ Vào nhanh Quyền Chủ Dự Án (127.0.0.1 — tuannguyen2205)</span>
+      </button>
+
+      <div class="relative my-4 flex items-center justify-center">
+        <div class="border-t border-slate-200 w-full"></div>
+        <span class="bg-white px-3 text-[11px] text-slate-400 whitespace-nowrap">hoặc đăng nhập bằng mật khẩu</span>
+        <div class="border-t border-slate-200 w-full"></div>
+      </div>
+
+      <form id="login-form" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Tài khoản Admin</label>
+          <input id="login-username" type="text" value="tuannguyen2205" required
+            class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu</label>
+          <input id="login-password" type="password" placeholder="Nhập mật khẩu..." required
+            class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        </div>
+        <button type="submit"
+          class="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition">
+          Đăng nhập Quản trị
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-600 text-white font-bold shadow-sm">
+          HG
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-bold tracking-tight text-slate-900">HeartGuard Admin Control Center</h1>
+            <span class="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              🔒 Localhost-Only (127.0.0.1:8090)
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">
+            Đồng bộ thời gian thực với MySQL • Thư mục <code class="text-slate-700 font-semibold">logs/</code> • Kill Switch &amp; Duyệt xóa 24h
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <span id="status-pill-chat" class="rounded-full border px-2.5 py-1 text-[11px] font-semibold">Chatbot: ...</span>
+        <span id="status-pill-reg" class="rounded-full border px-2.5 py-1 text-[11px] font-semibold">Đăng ký: ...</span>
+        <button id="btn-export-csv" type="button"
+          class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+          📥 Xuất CSV ẩn danh
+        </button>
+        <button id="btn-refresh-all" type="button"
+          class="rounded-xl bg-sky-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-sky-700">
+          ↻ Làm mới dữ liệu
+        </button>
+        <span id="admin-badge" class="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-6">
+
+    <!-- TOAST / ALERT BANNER -->
+    <div id="toast-banner" class="hidden rounded-xl border px-4 py-3 text-xs font-semibold shadow-sm"></div>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+      <button data-tab="overview" class="tab-btn tab-active rounded-xl px-4 py-2 text-xs font-bold transition">
+        📊 1. Tổng quan &amp; Phễu Pilot
+      </button>
+      <button data-tab="deletions" class="tab-btn tab-idle flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition">
+        <span>⏳ 2. Yêu cầu Xóa (Cam kết 24h)</span>
+        <span id="badge-pending-deletions" class="hidden rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold text-white">0</span>
+      </button>
+      <button data-tab="users" class="tab-btn tab-idle rounded-xl px-4 py-2 text-xs font-bold transition">
+        👥 3. Người dùng &amp; Bằng chứng Consent
+      </button>
+      <button data-tab="logs" class="tab-btn tab-idle rounded-xl px-4 py-2 text-xs font-bold transition">
+        🛡️ 4. Trung tâm Nhật ký JSON &amp; Guardrail
+      </button>
+      <button data-tab="control" class="tab-btn tab-idle rounded-xl px-4 py-2 text-xs font-bold transition">
+        ⚡ 5. Kill Switch &amp; Cấu hình Nóng
+      </button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW & PILOT FUNNEL -->
+    <section id="tab-overview" class="tab-panel space-y-6">
+      <div id="kpi-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <!-- Pilot Conversion Funnel -->
+        <div class="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">Phễu Chuyển đổi Người dùng Pilot (Conversion Funnel)</h2>
+              <p class="text-xs text-slate-500">Đo lường hành vi thực tế từ lúc đăng ký tới khi sử dụng AI &amp; quay lại</p>
+            </div>
+            <span id="pilot-cap-label" class="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700"></span>
+          </div>
+          <div id="funnel-list" class="space-y-3.5"></div>
+        </div>
+
+        <!-- Risk Level Distribution & System Info -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-sm font-bold text-slate-900 mb-1">Phân bố Mức ước lượng Nguy cơ</h2>
+            <p class="text-xs text-slate-500 mb-4">Thống kê từ bảng <code class="font-semibold">prediction_history</code></p>
+            <div id="risk-dist-list" class="space-y-3"></div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="text-sm font-bold text-slate-900 mb-3">Thông số Mô hình &amp; Pháp lý đang chạy</h2>
+            <div id="system-info-box" class="space-y-2 text-xs text-slate-600"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: 24H DELETION REQUEST QUEUE -->
+    <section id="tab-deletions" class="tab-panel hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Hàng đợi Duyệt Yêu cầu Xóa Tài khoản (Cam kết 24 giờ)</h2>
+          <p class="text-xs text-slate-500">
+            Khi người dùng gửi yêu cầu xóa kèm lý do trên trang Hồ sơ, yêu cầu hiển thị tại đây. Sau 24h nếu không có sự cố, hệ thống tự động xóa sạch dữ liệu MySQL và file log cá nhân.
+          </p>
+        </div>
+        <button id="btn-auto-purge" type="button"
+          class="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700">
+          🧹 Quét &amp; Tự động xóa các yêu cầu quá 24h ngay
+        </button>
+      </div>
+
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase text-slate-500">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Tài khoản</th>
+                <th class="px-4 py-3">Lý do người dùng muốn xóa</th>
+                <th class="px-4 py-3">Dữ liệu hiện có</th>
+                <th class="px-4 py-3">Thời điểm gửi / Hạn 24h</th>
+                <th class="px-4 py-3">Đếm ngược 24h</th>
+                <th class="px-4 py-3">Trạng thái</th>
+                <th class="px-4 py-3 text-right">Thao tác Duyệt</th>
+              </tr>
+            </thead>
+            <tbody id="deletion-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Audit Log of Deletion Requests -->
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 class="text-sm font-bold text-slate-900 mb-1">
+          Biên bản Lịch sử Yêu cầu &amp; Đã Xóa (<code class="text-sky-700">logs/logs_deletion_requests/deletion_requests.json</code>)
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">
+          Lưu vết đầy đủ cả các tài khoản đã được xóa khỏi MySQL để phục vụ đối chứng
+        </p>
+        <div id="deletion-audit-list" class="space-y-2 max-h-80 overflow-y-auto"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: USERS & LEGAL CONSENT AUDIT -->
+    <section id="tab-users" class="tab-panel hidden space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div>
+          <h2 class="text-sm font-bold text-slate-900">Danh sách Người dùng &amp; Bằng chứng Đồng ý Điều khoản</h2>
+          <p class="text-xs text-slate-500">Kiểm tra phiên bản điều khoản đã đồng ý, hồ sơ sinh học, lịch sử đánh giá và file log JSON của từng người</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="user-search-input" type="text" placeholder="Tìm username, email, SĐT..."
+            class="w-64 rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          <button id="btn-search-users" type="button"
+            class="rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-800">
+            Tìm
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase text-slate-500">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Tài khoản</th>
+                <th class="px-4 py-3">Vai trò</th>
+                <th class="px-4 py-3">Bằng chứng Pháp lý (Consent)</th>
+                <th class="px-4 py-3">Hồ sơ sức khỏe</th>
+                <th class="px-4 py-3">Hoạt động</th>
+                <th class="px-4 py-3 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: UNIFIED JSON LOGS & GUARDRAIL MONITOR -->
+    <section id="tab-logs" class="tab-panel hidden space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex flex-wrap gap-1.5">
+          <button data-logcat="guardrail" class="logcat-btn rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white">
+            🛡️ Guardrail Chatbot (Chặn thuốc/cấp cứu)
+          </button>
+          <button data-logcat="login" class="logcat-btn rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            🔑 Nhật ký Đăng nhập (logs_login)
+          </button>
+          <button data-logcat="prediction" class="logcat-btn rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            ❤️ Log Đánh giá theo User (prediction_with_users)
+          </button>
+          <button data-logcat="users" class="logcat-btn rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            👤 Log Vòng đời User (users)
+          </button>
+          <button data-logcat="deletion" class="logcat-btn rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            🗑️ Log Yêu cầu Xóa
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input id="log-search-input" type="text" placeholder="Lọc theo username, IP, lý do..."
+            class="w-56 rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          <button id="btn-filter-logs" type="button"
+            class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">
+            Lọc
+          </button>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-3 flex items-center justify-between">
+          <span id="log-count-label" class="text-xs font-bold text-slate-700">Đang tải...</span>
+          <span class="text-[11px] text-slate-400">Đọc trực tiếp từ <code>E:\heart predict\logs\</code></span>
+        </div>
+        <div id="logs-container" class="space-y-2.5 max-h-[560px] overflow-y-auto pr-1"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LIVE KILL SWITCH & RUNTIME CONTROL -->
+    <section id="tab-control" class="tab-panel hidden space-y-6">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Công tắc Khẩn cấp Thời gian thực (Live Kill Switches)</h2>
+            <p class="text-xs text-slate-500">
+              Có hiệu lực ngay lập tức trên cổng API chính (<code>:8000</code>) mà <strong>không cần khởi động lại Uvicorn</strong>.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <label class="flex items-center justify-between rounded-xl border border-slate-200 p-4 hover:bg-slate-50 cursor-pointer">
+              <div>
+                <p class="text-xs font-bold text-slate-900">1. Tạm dừng Trợ lý AI Chatbot (<code>chatbot_disabled</code>)</p>
+                <p class="text-[11px] text-slate-500">Bật khi Groq hết quota hoặc phát hiện người dùng cố tình gài bẫy Chatbot.</p>
+              </div>
+              <input id="ctrl-chatbot-disabled" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-rose-600" />
+            </label>
+
+            <label class="flex items-center justify-between rounded-xl border border-slate-200 p-4 hover:bg-slate-50 cursor-pointer">
+              <div>
+                <p class="text-xs font-bold text-slate-900">2. Khóa Đăng ký Tài khoản mới (<code>registration_disabled</code>)</p>
+                <p class="text-[11px] text-slate-500">Bật khi kết thúc đợt thử nghiệm hoặc khi bị spam tạo tài khoản.</p>
+              </div>
+              <input id="ctrl-registration-disabled" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-rose-600" />
+            </label>
+
+            <label class="flex items-center justify-between rounded-xl border border-slate-200 p-4 hover:bg-slate-50 cursor-pointer">
+              <div>
+                <p class="text-xs font-bold text-slate-900">3. Tạm dừng API Ước lượng Nguy cơ (<code>prediction_disabled</code>)</p>
+                <p class="text-[11px] text-slate-500">Tạm khóa tính năng chạy mô hình ML khi cần bảo trì.</p>
+              </div>
+              <input id="ctrl-prediction-disabled" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-rose-600" />
+            </label>
+
+            <label class="flex items-center justify-between rounded-xl border border-slate-200 p-4 hover:bg-slate-50 cursor-pointer">
+              <div>
+                <p class="text-xs font-bold text-slate-900">4. Tự động xóa tài khoản sau 24h (<code>auto_purge_24h_deletions</code>)</p>
+                <p class="text-[11px] text-slate-500">Tự động thực thi cam kết xóa dữ liệu đối với yêu cầu đã qua 24 giờ mà không bị giữ lại.</p>
+              </div>
+              <input id="ctrl-auto-purge" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-sky-600" />
+            </label>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Giới hạn Đợt Thử nghiệm Pilot (Quota &amp; Limits)</h2>
+            <p class="text-xs text-slate-500">Điều chỉnh nóng hạn mức cho 100 người dùng đầu tiên</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Số lượng tài khoản Pilot tối đa (<code>max_pilot_users</code>, đặt 0 = không giới hạn)
+              </label>
+              <input id="ctrl-max-pilot" type="number" min="0" max="10000"
+                class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Giới hạn lượt hỏi Chatbot / người / giờ (<code>hourly_chat_limit</code>)
+              </label>
+              <input id="ctrl-hourly-chat" type="number" min="1" max="200"
+                class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                Ghi chú trạng thái đợt Pilot (<code>pilot_notice</code>)
+              </label>
+              <input id="ctrl-pilot-notice" type="text" maxlength="300"
+                class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+            </div>
+
+            <button id="btn-save-control" type="button"
+              class="w-full rounded-xl bg-sky-600 px-4 py-3 text-xs font-bold text-white shadow hover:bg-sky-700 transition">
+              💾 Lưu Cấu hình &amp; Áp dụng Ngay
+            </button>
+            <p id="ctrl-updated-meta" class="text-[11px] text-slate-400"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 360 USER DETAIL DRAWER / MODAL -->
+  <div id="user-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <div>
+          <h3 id="detail-title" class="text-base font-bold text-slate-900">Chi tiết 360° Người dùng</h3>
+          <p id="detail-subtitle" class="text-xs text-slate-500"></p>
+        </div>
+        <button id="btn-close-detail" type="button"
+          class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+          ✕ Đóng
+        </button>
+      </div>
+      <div id="detail-body" class="overflow-y-auto p-6 space-y-6 text-xs"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api-config";
 import ReactMarkdown from 'react-markdown';
+import { MedicalDisclaimer } from "@/components/ui/medical-disclaimer";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface PredictionResult {
@@ -199,7 +200,7 @@ export default function HeartChatbot({ latestResult, initiallyOpen = false }: { 
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans">
       {isOpen && (
-        <Card className="w-[min(400px,calc(100vw-2rem))] h-[min(600px,calc(100dvh-7rem))] flex flex-col shadow-sm border-0 ring-1 ring-slate-200/50 animate-in slide-in-from-bottom-6 duration-300 rounded-2xl overflow-hidden mb-4">
+        <Card className="w-[min(480px,calc(100vw-2rem))] h-[min(680px,calc(100dvh-6rem))] flex flex-col shadow-sm border-0 ring-1 ring-slate-200/50 animate-in slide-in-from-bottom-6 duration-300 rounded-2xl overflow-hidden mb-4">
           
           {/* Header */}
           <CardHeader className="bg-primary text-white p-4 flex flex-row items-center justify-between space-y-0 shadow-md z-10">
@@ -209,9 +210,9 @@ export default function HeartChatbot({ latestResult, initiallyOpen = false }: { 
 
               </div>
               <div>
-                <CardTitle className="text-base font-bold tracking-wide">Trợ lý sức khỏe</CardTitle>
+                <CardTitle className="text-base font-bold tracking-wide">Trợ lý giải đáp thông tin</CardTitle>
                 <p className="text-[11px] text-sky-100 font-medium mt-0.5 opacity-90">
-                  {chatStatus.remaining > 0 ? `Còn ${chatStatus.remaining} lượt tư vấn/giờ` : "Đang quá tải"}
+                  {chatStatus.remaining > 0 ? `Còn ${chatStatus.remaining} lượt giải đáp/giờ` : "Đã hết lượt trong giờ"}
                 </p>
               </div>
             </div>
@@ -225,7 +226,11 @@ export default function HeartChatbot({ latestResult, initiallyOpen = false }: { 
               <X className="h-4 w-4" />
             </Button>
           </CardHeader>
-
+            <MedicalDisclaimer
+              language="vi"
+              compact
+              className="rounded-none border-x-0 border-t-0 bg-sky-50/60"
+            />
           {/* Nội dung khung Chat */}
           <CardContent className="min-h-0 flex-1 overflow-y-auto p-4 bg-slate-50 space-y-5 scrollbar-thin scrollbar-thumb-slate-200">
             {chatError && (
@@ -238,9 +243,9 @@ export default function HeartChatbot({ latestResult, initiallyOpen = false }: { 
                 <div className="h-16 w-16 rounded-full bg-sky-100/50 flex items-center justify-center border-4 border-white shadow-sm mb-4">
                   <Heart className="h-7 w-7 text-sky-500 fill-sky-500/20" />
                 </div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">Bạn cần hỗ trợ thông tin gì?</h3>
-                <p className="text-xs text-slate-500 leading-relaxed max-w-[260px]">
-                  Bạn có thể hỏi về các chỉ số trong biểu mẫu hoặc kết quả đánh giá. Phản hồi được tạo tự động và chỉ mang tính tham khảo.
+                <h3 className="text-base font-bold text-slate-800 mb-1">Bạn cần giải đáp thông tin gì?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-[270px]">
+                  Bạn có thể hỏi ý nghĩa các chỉ số trong biểu mẫu hoặc lối sống lành mạnh. Hệ thống không tư vấn thuốc/liều lượng hay xử trí cấp cứu.
                 </p>
               </div>
             ) : (

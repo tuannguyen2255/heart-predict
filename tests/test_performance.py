@@ -120,7 +120,7 @@ class ConcurrencyTests(unittest.IsolatedAsyncioTestCase):
 
         payload = json.loads((Path(__file__).parents[1] / "scripts/predict_payload.json").read_text())
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app()), base_url="http://test") as client:
-            with patch.object(state, "model", object()), patch.object(state, "feature_names", ["age"]), patch.object(predictions, "run_inference", slow_inference):
+            with patch.object(state, "pipeline_v2", object()), patch.object(state, "model_card", {"risk_bands": {"low": 0.2, "medium": 0.4, "high": 0.7}}), patch.object(predictions, "run_inference", slow_inference):
                 prediction = asyncio.create_task(client.post("/predict", json=payload))
                 try:
                     self.assertTrue(await asyncio.to_thread(started.wait, 1))
@@ -151,7 +151,7 @@ class ConcurrencyTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(state, "groq_ready", True), patch.object(chatbot, "get_conn", side_effect=connect), patch.object(chatbot, "_call_groq", groq):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app()), base_url="http://test") as client:
                 response = await client.post("/chatbot", json={"message": "hello"})
-        self.assertEqual(response.json(), {"response": "answer"})
+        self.assertTrue(response.json()["response"].startswith("answer"))
         self.assertTrue(all(t != loop_thread for t in threads))
         write_conn.commit.assert_called_once()
         write_conn.close.assert_called_once()

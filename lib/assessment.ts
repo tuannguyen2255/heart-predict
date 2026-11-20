@@ -62,5 +62,21 @@ export function historyPayload(snapshot: AssessmentSnapshot) {
     clinical_score: snapshot.result.clinical_evaluation.probability * 10,
     probability: snapshot.result.ai_prediction.probability,
     risk_level: snapshot.result.ai_prediction.risk_level,
+    inputs: {
+      age: snapshot.inputs.age,
+      sex: snapshot.inputs.sex,
+      height: snapshot.inputs.height,
+      weight: snapshot.inputs.weight,
+      trestbps: snapshot.inputs.trestbps,
+      chol: snapshot.inputs.chol,
+      thalch: snapshot.inputs.thalch,
+      oldpeak: snapshot.inputs.oldpeak,
+      fbs: snapshot.inputs.fbs,
+      exang: snapshot.inputs.exang,
+      cp: snapshot.inputs.cp,
+      restecg: snapshot.inputs.restecg,
+      slope: snapshot.inputs.slope,
+      bmi: snapshot.result.bmi,
+    },
   };
 }

@@ -1,0 +1,45 @@
+{
+  "version": "v2",
+  "trained_at": "2026-11-16T08:10:42.682151+00:00",
+  "model": "LogisticRegression",
+  "data_sha256": "574f2fa2b43012fa25fca4fcdb36bd7c6bccdd0af4242f6c0e4c8633c5a072ae",
+  "n_rows": 918,
+  "features": {
+    "numeric": [
+      "age",
+      "trestbps",
+      "chol",
+      "thalch",
+      "oldpeak"
+    ],
+    "categorical": [
+      "sex",
+      "fbs",
+      "exang",
+      "cp",
+      "restecg",
+      "slope"
+    ]
+  },
+  "threshold": 0.4147,
+  "target_recall": 0.9,
+  "risk_bands": {
+    "low": 0.2073,
+    "medium": 0.4147,
+    "high": 0.7073
+  },
+  "test_metrics": {
+    "n": 184,
+    "recall": 0.9216,
+    "specificity": 0.6829,
+    "precision": 0.7833,
+    "accuracy": 0.8152,
+    "roc_auc": 0.8912
+  },
+  "versions": {
+    "python": "3.13.14",
+    "sklearn": "1.8.0",
+    "pandas": "2.2.3",
+    "numpy": "2.5.1"
+  }
+}

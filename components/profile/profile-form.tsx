@@ -1,17 +1,19 @@
 "use client";
 
-import { getAccessToken } from "@/lib/client-session";
+import { clearSession, getAccessToken } from "@/lib/client-session";
 import { API_ENDPOINTS } from "@/lib/api-config";
 import { apiErrorMessage } from "@/lib/api-errors";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Loader2, AlertTriangle, CheckCircle, HeartPulse, 
-  Edit3, X, Save, Calendar, User, Ruler, Scale, Activity 
+  Edit3, X, Save, Calendar, User, Ruler, Scale, Activity, Trash2, Shield
 } from "lucide-react";
 
 // ⚠️ CẤU HÌNH TẠI ĐÂY: Sửa lại cho đúng port FastAPI của bạn
@@ -26,9 +28,17 @@ interface UserProfileData {
 }
 
 export function ProfileForm() {
+  const router = useRouter();
   const [isFetching, setIsFetching] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // Trạng thái bật/tắt chế độ chỉnh sửa
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+  const [pendingDeletion, setPendingDeletion] = useState<{
+    reason: string;
+    scheduled_delete_at?: string | null;
+  } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [username, setUsername] = useState("");
@@ -73,7 +83,7 @@ export function ProfileForm() {
       if (data) {
         const standardData = {
           age: data.age ?? "Chưa cập nhật",
-          sex: data.sex !== undefined ? String(data.sex) : "1",
+          sex: data.sex === 0 || data.sex === 1 || data.sex === "0" || data.sex === "1" ? String(data.sex) : "",
           height: data.height ?? "Chưa cập nhật",
           weight: data.weight ?? "Chưa cập nhật",
           blood_pressure: data.blood_pressure ?? "Chưa cập nhật",
@@ -81,6 +91,27 @@ export function ProfileForm() {
         };
         setProfile(standardData);
         setFormData(standardData); // Đồng bộ luôn vào form tạm
+      }
+
+      // Kiểm tra trạng thái yêu cầu xóa tài khoản (nếu có)
+      try {
+        const delRes = await fetch(API_ENDPOINTS.deletionRequest, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (delRes.ok) {
+          const delData = await delRes.json();
+          if (delData?.pending) {
+            setPendingDeletion({
+              reason: delData.reason || "",
+              scheduled_delete_at: delData.scheduled_delete_at || null,
+            });
+          } else {
+            setPendingDeletion(null);
+          }
+        }
+      } catch {
+        // Không chặn tải hồ sơ nếu endpoint phụ tạm gián đoạn
       }
     } catch (err: any) {
       setError(err.message || "Lỗi đồng bộ hồ sơ.");
@@ -97,7 +128,7 @@ export function ProfileForm() {
   const handleStartEdit = () => {
     setFormData({
       age: profile.age === "Chưa cập nhật" ? "" : profile.age,
-      sex: profile.sex,
+      sex: profile.sex === "0" || profile.sex === "1" ? String(profile.sex) : "1",
       height: profile.height === "Chưa cập nhật" ? "" : profile.height,
       weight: profile.weight === "Chưa cập nhật" ? "" : profile.weight,
       blood_pressure: profile.blood_pressure === "Chưa cập nhật" ? "" : profile.blood_pressure,
@@ -125,12 +156,12 @@ export function ProfileForm() {
       const token = getAccessToken();
       
       const payload = {
-        age: formData.age !== "" ? parseInt(String(formData.age)) : null,
-        sex: parseInt(String(formData.sex)),
+        age: formData.age !== "" ? parseInt(String(formData.age), 10) : null,
+        sex: formData.sex === "0" || formData.sex === "1" ? parseInt(String(formData.sex), 10) : 1,
         height: formData.height !== "" ? parseFloat(String(formData.height)) : null,
         weight: formData.weight !== "" ? parseFloat(String(formData.weight)) : null,
-        blood_pressure: formData.blood_pressure !== "" ? parseInt(String(formData.blood_pressure)) : null,
-        cholesterol: formData.cholesterol !== "" ? parseInt(String(formData.cholesterol)) : null,
+        blood_pressure: formData.blood_pressure !== "" ? parseInt(String(formData.blood_pressure), 10) : null,
+        cholesterol: formData.cholesterol !== "" ? parseInt(String(formData.cholesterol), 10) : null,
       };
 
       const res = await fetch(API_ENDPOINTS.updateProfile, {
@@ -244,7 +275,9 @@ export function ProfileForm() {
                     <User className="h-5 w-5 text-slate-400" />
                     <div>
                       <p className="text-xs text-slate-500 font-medium">Giới tính sinh học</p>
-                      <p className="text-sm font-bold text-slate-800">{profile.sex === "1" ? "Nam giới" : "Nữ giới"}</p>
+                      <p className="text-sm font-bold text-slate-800">
+                        {profile.sex === "1" ? "Nam giới" : profile.sex === "0" ? "Nữ giới" : "Chưa cập nhật"}
+                      </p>
                     </div>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
@@ -344,6 +377,182 @@ export function ProfileForm() {
                 </Button>
               </div>
             </form>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quyền dữ liệu & Yêu cầu xóa tài khoản (duyệt & cam kết xóa trong 24 giờ) */}
+      <Card className="border-slate-200/80 shadow-sm rounded-2xl overflow-hidden bg-white">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <Shield className="h-5 w-5 text-sky-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 text-xs leading-5 text-slate-600">
+              <h3 className="text-sm font-bold text-slate-900">Quyền dữ liệu &amp; Yêu cầu xóa tài khoản</h3>
+              <p>
+                Bạn có thể gửi yêu cầu xóa tài khoản kèm lý do. Quản trị viên sẽ xem xét và{" "}
+                <strong>cam kết xóa toàn bộ dữ liệu trong vòng 24 giờ</strong> nếu không có vấn đề phát sinh. Xem thêm tại{" "}
+                <Link href="/terms#privacy" className="font-semibold text-sky-700 hover:underline">
+                  Chính sách bảo vệ dữ liệu
+                </Link>{" "}
+                hoặc liên hệ{" "}
+                <a href="mailto:tuannguyen2205@gmail.com" className="font-semibold text-sky-700 hover:underline">
+                  tuannguyen2205@gmail.com
+                </a>
+                .
+              </p>
+            </div>
+          </div>
+
+          {pendingDeletion ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 space-y-3 text-xs text-amber-900">
+              <div className="font-semibold">
+                Đã tiếp nhận yêu cầu xóa tài khoản — đang chờ duyệt (cam kết xử lý trong 24 giờ)
+              </div>
+              <p className="text-amber-800">
+                <strong>Lý do đã gửi:</strong> {pendingDeletion.reason}
+              </p>
+              {pendingDeletion.scheduled_delete_at && (
+                <p className="text-amber-800">
+                  <strong>Thời hạn dự kiến hoàn tất xóa:</strong>{" "}
+                  {new Date(pendingDeletion.scheduled_delete_at).toLocaleString("vi-VN")}
+                </p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isSubmittingDelete}
+                onClick={async () => {
+                  setIsSubmittingDelete(true);
+                  setError("");
+                  try {
+                    const token = getAccessToken();
+                    if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
+                    const res = await fetch(API_ENDPOINTS.deletionRequest, {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (!res.ok) throw new Error(await apiErrorMessage(res));
+                    setPendingDeletion(null);
+                    setSuccess("Đã hủy yêu cầu xóa tài khoản.");
+                  } catch (err: any) {
+                    setError(err.message || "Không thể hủy yêu cầu xóa.");
+                  } finally {
+                    setIsSubmittingDelete(false);
+                  }
+                }}
+                className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100 text-xs font-semibold"
+              >
+                {isSubmittingDelete ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                Hủy yêu cầu xóa
+              </Button>
+            </div>
+          ) : !showDeleteForm ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowDeleteForm(true);
+                setError("");
+              }}
+              className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Gửi yêu cầu xóa tài khoản &amp; dữ liệu
+            </Button>
+          ) : (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-rose-900">
+                  Vui lòng cho biết lý do bạn muốn xóa tài khoản (bắt buộc):
+                </p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    "Đã trải nghiệm xong bản thử nghiệm",
+                    "Không còn nhu cầu sử dụng",
+                    "Lo ngại về quyền riêng tư dữ liệu",
+                    "Muốn tạo lại tài khoản khác",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setDeleteReason(preset)}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 hover:border-sky-300 hover:text-sky-700"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Nhập lý do chi tiết (tối thiểu 5 ký tự)..."
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+
+              <p className="text-[11px] leading-4 text-slate-600">
+                Yêu cầu sẽ được gửi tới quản trị viên (<strong>Nguyễn Minh Tuấn</strong>) để rà soát và{" "}
+                <strong>cam kết xóa hoàn toàn dữ liệu trong vòng 24 giờ</strong> nếu không có vấn đề phát sinh.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSubmittingDelete || deleteReason.trim().length < 5}
+                  onClick={async () => {
+                    setIsSubmittingDelete(true);
+                    setError("");
+                    setSuccess("");
+                    try {
+                      const token = getAccessToken();
+                      if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
+                      const res = await fetch(API_ENDPOINTS.deletionRequest, {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ reason: deleteReason.trim() }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.detail || "Không thể gửi yêu cầu xóa.");
+                      setPendingDeletion({
+                        reason: data.reason || deleteReason.trim(),
+                        scheduled_delete_at: data.scheduled_delete_at || null,
+                      });
+                      setShowDeleteForm(false);
+                      setDeleteReason("");
+                      setSuccess(data.message || "Đã gửi yêu cầu xóa tài khoản (xử lý trong vòng 24 giờ).");
+                    } catch (err: any) {
+                      setError(err.message || "Không thể gửi yêu cầu xóa.");
+                    } finally {
+                      setIsSubmittingDelete(false);
+                    }
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold gap-1.5"
+                >
+                  {isSubmittingDelete ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Gửi yêu cầu xóa (xử lý trong 24h)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isSubmittingDelete}
+                  onClick={() => {
+                    setShowDeleteForm(false);
+                    setDeleteReason("");
+                  }}
+                  className="text-xs"
+                >
+                  Hủy
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

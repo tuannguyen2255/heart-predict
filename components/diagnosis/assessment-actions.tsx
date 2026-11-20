@@ -9,6 +9,7 @@ import { apiErrorMessage } from "@/lib/api-errors";
 import { invalidateHistory } from "@/lib/history";
 import { AssessmentSnapshot, historyPayload } from "@/lib/assessment";
 import { useLanguage } from "@/lib/i18n/context";
+import { MedicalDisclaimer } from "@/components/ui/medical-disclaimer";
 
 export function AssessmentActions({ snapshot }: { snapshot: AssessmentSnapshot }) {
   const { language } = useLanguage();
@@ -71,6 +72,6 @@ export function AssessmentPrint({ snapshot }: { snapshot: AssessmentSnapshot }) 
     <p>{vi ? "Điểm lâm sàng" : "Clinical score"}: {(snapshot.result.clinical_evaluation.probability * 10).toFixed(1)} / 10</p>
     <p>BMI: {snapshot.result.bmi?.toFixed(1) ?? "—"}</p>
     <p>{snapshot.result.ai_prediction.message}</p>
-    <p className="mt-4">{vi ? "Kết quả tham khảo, không thay thế chẩn đoán của bác sĩ. Phiếu sử dụng dữ liệu tại thời điểm gửi đánh giá." : "For reference, not a medical diagnosis. This report uses the inputs submitted for this assessment."}</p>
+    <MedicalDisclaimer language={vi ? "vi" : "en"} compact />
   </article>;
 }

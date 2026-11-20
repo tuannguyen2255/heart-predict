@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { getAccessToken } from "@/lib/client-session";
 import { useLanguage } from "@/lib/i18n/context";
 import { ArrowRight, ClipboardList, History, UserRound, FileCheck2, HeartPulse, ChevronRight } from "lucide-react";
+import { MedicalDisclaimer } from "@/components/ui/medical-disclaimer";
 
 export default function HomePage() {
   const { language } = useLanguage();
@@ -45,7 +46,7 @@ export default function HomePage() {
           <aside className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <div className="flex items-center gap-3 border-b border-slate-200 bg-[#edf5fa] px-6 py-5"><FileCheck2 className="h-6 w-6 text-primary" /><div><h2 className="font-semibold text-slate-900">{vi ? "Chuẩn bị trước khi bắt đầu" : "Before you begin"}</h2><p className="mt-1 text-sm text-slate-600">{vi ? "Sử dụng thông tin từ phiếu khám của bạn" : "Have your health records ready"}</p></div></div>
             <ol className="divide-y divide-slate-200 px-6">{preparation.map((item, i) => <li key={item} className="flex items-start gap-4 py-5 text-sm leading-6 text-slate-700"><span className="shrink-0 font-semibold tabular-nums text-teal-700">0{i + 1}</span>{item}</li>)}</ol>
-            <p className="px-6 pb-5 text-xs leading-5 text-slate-500">{vi ? "Kết quả mang tính tham khảo, không thay thế chẩn đoán của bác sĩ." : "Results are for reference and do not replace a medical diagnosis."}</p>
+            <MedicalDisclaimer language={vi ? "vi" : "en"} compact />
           </aside>
         </div>
       </section>
@@ -57,6 +58,15 @@ export default function HomePage() {
       <section id="huong-dan" className="scroll-mt-24 border-y border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[.7fr_1.3fr] lg:gap-16 lg:px-8"><div><p className="mb-2 text-sm font-semibold text-teal-700">{vi ? "HƯỚNG DẪN" : "GETTING STARTED"}</p><h2 className="text-2xl font-semibold">{vi ? "Sử dụng HeartGuard" : "Using HeartGuard"}</h2><p className="mt-3 text-sm leading-6 text-slate-600">{vi ? "Những thông tin cần biết để hoàn thành và lưu lại một lần đánh giá." : "What to know before completing and saving an assessment."}</p></div><div className="divide-y divide-slate-200">{questions.map(([q, a], i) => <details key={q} className="group py-4 first:pt-0" open={i === 0}><summary className="cursor-pointer text-sm font-semibold leading-6 text-slate-800 marker:text-primary">{q}</summary><p className="mt-3 text-sm leading-7 text-slate-600">{a}</p></details>)}</div></div>
       </section>
+      <footer className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-xs text-slate-500 sm:px-6 lg:px-8">
+        <p>HeartGuard — Nguyên mẫu nghiên cứu tham khảo (Nguyễn Minh Tuấn, UTH). Không thay thế bác sĩ. Cấp cứu: 115.</p>
+        <div className="flex flex-wrap items-center gap-4 font-medium text-sky-700">
+          <Link href="/terms#terms" className="hover:underline">Điều khoản sử dụng</Link>
+          <Link href="/terms#privacy" className="hover:underline">Chính sách dữ liệu</Link>
+          <Link href="/terms#method" className="hover:underline">Hạn chế mô hình</Link>
+          <Link href="/terms#contact" className="hover:underline">Liên hệ &amp; Xóa dữ liệu</Link>
+        </div>
+      </footer>
     </main>
     <footer className="mx-auto flex max-w-7xl flex-col justify-between gap-2 px-4 py-6 text-xs leading-5 text-slate-500 sm:flex-row sm:px-6 lg:px-8"><p>© {new Date().getFullYear()} HeartGuard</p><p>{vi ? "Thông tin sức khỏe • Đánh giá nguy cơ • Theo dõi kết quả" : "Health information • Risk assessment • Assessment history"}</p></footer>
   </div>;

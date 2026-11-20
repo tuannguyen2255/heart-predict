@@ -28,7 +28,7 @@ class LoginTests(unittest.TestCase):
         token = response.json()["access_token"]
         self.assertEqual(get_current_user(token), "alice")
         payload = json.loads((Path(__file__).parents[1] / "scripts/predict_payload.json").read_text())
-        with patch.object(state, "model", object()), patch.object(state, "feature_names", ["age"]), patch.object(predictions, "run_inference", return_value=(0, 0.1)):
+        with patch.object(state, "pipeline_v2", object()), patch.object(state, "model_card", {"risk_bands": {"low": 0.2, "medium": 0.4, "high": 0.7}}), patch.object(predictions, "run_inference", return_value=(0, 0.1)):
             self.assertEqual(client.post("/predict", json=payload, headers={"Authorization": f"Bearer {token}"}).status_code, 200)
             self.assertEqual(client.post("/predict", json=payload, headers={"Authorization": "Bearer null"}).status_code, 401)
 

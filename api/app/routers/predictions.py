@@ -4,9 +4,11 @@ routers/predictions.py
 import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from app.audit_logger import log_prediction_event
 from app.auth import get_current_user
 from app.database import get_conn, get_user_id
 from app.ml import calculate_bmi, calculate_clinical_score, get_risk_level, run_inference
+from app.runtime_control import get_runtime_control
 from app.schemas import PredictionInput, PredictionOutput, SaveHistoryInput
 from app.state import state
 
@@ -14,17 +16,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Predictions"])
 
 AI_MESSAGES = {
-    "THẤP": "Tuyệt vời! Hệ thống đánh giá nguy cơ tim mạch của bạn ở mức THẤP (An toàn).",
-    "TRUNG BÌNH": "Nguy cơ tim mạch ở mức TRUNG BÌNH. Hãy chú ý duy trì lối sống lành mạnh và theo dõi định kỳ.",
-    "CAO": "Hệ thống phát hiện nguy cơ tim mạch ở mức CAO. Bạn nên đến gặp bác sĩ chuyên khoa sớm để kiểm tra.",
-    "RẤT CAO": "CẢNH BÁO: Nguy cơ tim mạch ở mức RẤT CAO! Cần đến cơ sở y tế gần nhất để kiểm tra chuyên sâu ngay lập tức.",
+    "THẤP": "Dựa trên các chỉ số bạn đã nhập, mô hình nghiên cứu ước lượng nguy cơ ở mức thấp. Đây chỉ là thông tin tham khảo và không loại trừ các vấn đề sức khỏe tiềm ẩn. Nếu có triệu chứng bất thường hoặc lo ngại, bạn nên trao đổi với bác sĩ.",
+    "TRUNG BÌNH": "Dựa trên các chỉ số bạn đã nhập, mô hình nghiên cứu ước lượng nguy cơ ở mức trung bình. Hãy tiếp tục duy trì lối sống lành mạnh và theo dõi định kỳ.",
+    "CAO": "Dựa trên dữ liệu nhập vào, mô hình ước lượng nguy cơ ở mức cao. Đây là kết quả tham khảo từ mô hình nghiên cứu, không phải kết luận y khoa. Bạn nên cân nhắc trao đổi sớm với bác sĩ chuyên khoa để được đánh giá đầy đủ.",
+    "RẤT CAO": "Dựa trên dữ liệu nhập vào, mô hình ước lượng nguy cơ ở mức rất cao. Đây không phải kết luận y khoa; bạn nên sớm trao đổi với bác sĩ chuyên khoa. Nếu đang có triệu chứng như đau ngực, khó thở hoặc ngất, hãy gọi cấp cứu 115 ngay.",
 }
 
 CLINICAL_MESSAGES = {
-    "THẤP": "Các chỉ số lâm sàng hiện tại đang rất ổn định. Hãy tiếp tục duy trì phong độ này!",
-    "TRUNG BÌNH": "Các chỉ số ở ngưỡng nhạy cảm, cần hạn chế căng thẳng và tập thể dục đều đặn hơn.",
-    "CAO": "Điểm lâm sàng cảnh báo dấu hiệu không tốt. Hãy chú ý chế độ ăn uống bớt muối và mỡ động vật.",
-    "RẤT CAO": "Điểm số lâm sàng ở mức báo động đỏ. Cần can thiệp y tế và theo dõi nghiêm ngặt.",
+    "THẤP": "Điểm tham khảo lâm sàng hiện ở mức thấp theo các chỉ số đã nhập. Các chỉ số đơn lẻ không phản ánh toàn bộ tình trạng sức khỏe tổng thể.",
+    "TRUNG BÌNH": "Điểm tham khảo lâm sàng ở mức trung bình. Bạn có thể theo dõi định kỳ các chỉ số huyết áp, mỡ máu và trao đổi thêm với bác sĩ khi cần.",
+    "CAO": "Điểm tham khảo lâm sàng ở mức cao theo các chỉ số đã nhập. Đây là tín hiệu tham khảo để bạn cân nhắc trao đổi sớm với bác sĩ và xem xét thói quen sinh hoạt phù hợp.",
+    "RẤT CAO": "Điểm tham khảo lâm sàng ở mức rất cao theo các chỉ số đã nhập. Đây là tín hiệu tham khảo để bạn cân nhắc trao đổi sớm với bác sĩ và xem xét thói quen sinh hoạt phù hợp.",
 }
 
 
@@ -40,6 +42,11 @@ def _parse_inputs(raw_inputs):
 @router.post("/predict", response_model=PredictionOutput)
 def predict(input_data: PredictionInput, current_user: str = Depends(get_current_user)):
     """Dự đoán nguy cơ bệnh tim mạch dùng Pipeline Học Máy v2."""
+    if get_runtime_control().get("prediction_disabled"):
+        raise HTTPException(
+            status_code=503,
+            detail="Tính năng ước lượng nguy cơ hiện đang tạm dừng bảo trì bởi quản trị viên.",
+        )
     if state.pipeline_v2 is None or state.model_card is None:
         raise HTTPException(status_code=503, detail="Mô hình ML v2 chưa sẵn sàng")
 
@@ -52,7 +59,7 @@ def predict(input_data: PredictionInput, current_user: str = Depends(get_current
     ai_risk_level = get_risk_level(probability, state.model_card.get("risk_bands"))
     clinical_risk_level = get_risk_level(clinical_score)
 
-    return {
+    response_payload = {
         "ai_prediction": {
             "probability": float(probability),
             "risk_level": ai_risk_level,
@@ -66,6 +73,12 @@ def predict(input_data: PredictionInput, current_user: str = Depends(get_current
         "prediction": int(prediction_result),
         "bmi": bmi_value,
     }
+    log_prediction_event(
+        current_user,
+        "predict",
+        {"inputs": d, "result": response_payload},
+    )
+    return response_payload
 
 
 @router.get("/prediction/history")
@@ -176,12 +189,24 @@ def save_prediction_history(body: SaveHistoryInput, current_user: str = Depends(
              body.clinical_score, body.probability, body.risk_level, inputs_str),
         )
         conn.commit()
-        return {"status": "success", "message": "Đã lưu lịch sử chẩn đoán thành công!"}
+        log_prediction_event(
+            current_user,
+            "save_history",
+            {
+                "name_prediction": body.name_prediction,
+                "prediction_result": body.prediction_result,
+                "clinical_score": body.clinical_score,
+                "probability": body.probability,
+                "risk_level": body.risk_level,
+                "inputs": body.inputs,
+            },
+        )
+        return {"status": "success", "message": "Đã lưu lịch sử đánh giá tham khảo thành công!"}
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Lỗi lưu lịch sử chẩn đoán")
-        raise HTTPException(status_code=500, detail="Không thể lưu kết quả chẩn đoán")
+        logger.exception("Lỗi lưu lịch sử đánh giá tham khảo")
+        raise HTTPException(status_code=500, detail="Không thể lưu kết quả đánh giá tham khảo vào cơ sở dữ liệu")
     finally:
         cursor.close()
         conn.close()

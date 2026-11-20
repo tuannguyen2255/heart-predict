@@ -45,15 +45,19 @@ def init_db():
         # 1. Bảng tài khoản người dùng chính (Đồng bộ chuẩn cột password_hash)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
-                id            INT AUTO_INCREMENT PRIMARY KEY,
-                username      VARCHAR(50) UNIQUE NOT NULL,
-                password      VARCHAR(255) NOT NULL,
-                email         VARCHAR(255) NULL,
-                phone         VARCHAR(12) NULL,
-                role          ENUM('user', 'admin') DEFAULT 'user',
-                is_premium    TINYINT(1) DEFAULT 0,
-                premium_until DATETIME NULL,
-                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id                INT AUTO_INCREMENT PRIMARY KEY,
+                username          VARCHAR(50) UNIQUE NOT NULL,
+                password          VARCHAR(255) NOT NULL,
+                email             VARCHAR(255) NULL,
+                phone             VARCHAR(12) NULL,
+                role              ENUM('user', 'admin') DEFAULT 'user',
+                is_premium        TINYINT(1) DEFAULT 0,
+                premium_until     DATETIME NULL,
+                terms_version     VARCHAR(32) NULL,
+                accepted_terms_at DATETIME NULL,
+                age_confirmed     TINYINT(1) DEFAULT 0,
+                research_consent  TINYINT(1) DEFAULT 0,
+                created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_users_email (email),
                 INDEX idx_users_phone (phone)
             )
@@ -108,12 +112,42 @@ def init_db():
             )
         ''')
         
+        # 5. Bảng lưu yêu cầu xóa tài khoản (duyệt & cam kết xóa trong 24 giờ)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS account_deletion_requests (
+                id                  INT AUTO_INCREMENT PRIMARY KEY,
+                user_id             INT NOT NULL,
+                username            VARCHAR(50) NOT NULL,
+                reason              TEXT NOT NULL,
+                status              ENUM('pending', 'approved', 'cancelled') DEFAULT 'pending',
+                requested_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scheduled_delete_at DATETIME NOT NULL,
+                INDEX idx_delreq_user_status (user_id, status),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ''')
+
         cursor.execute(
             "SELECT COUNT(*) FROM information_schema.columns "
             "WHERE table_schema = DATABASE() AND table_name = 'prediction_history' AND column_name = 'inputs_json'"
         )
         if cursor.fetchone()[0] == 0:
             cursor.execute("ALTER TABLE prediction_history ADD COLUMN inputs_json JSON NULL")
+
+        user_consent_columns = [
+            ("terms_version", "VARCHAR(32) NULL"),
+            ("accepted_terms_at", "DATETIME NULL"),
+            ("age_confirmed", "TINYINT(1) DEFAULT 0"),
+            ("research_consent", "TINYINT(1) DEFAULT 0"),
+        ]
+        for col_name, col_def in user_consent_columns:
+            cursor.execute(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                "WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = %s",
+                (col_name,),
+            )
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}")
 
         conn.commit()
         logger.info("Toàn bộ cơ sở dữ liệu hệ thống AI cá nhân đã sẵn sàng")

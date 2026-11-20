@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { API_ENDPOINTS } from "@/lib/api-config";
-import { saveSession } from "@/lib/client-session";
-import { Heart, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { API_ENDPOINTS, CURRENT_TERMS_VERSION } from "@/lib/api-config";
+import { clearSession, saveSession } from "@/lib/client-session";
+import { Heart, Loader2, AlertCircle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 export function LoginFormAPI() {
   const { t } = useLanguage();
@@ -18,6 +18,9 @@ export function LoginFormAPI() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [pendingVersion, setPendingVersion] = useState<string>(CURRENT_TERMS_VERSION);
+  const [reacceptChecked, setReacceptChecked] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -45,6 +48,13 @@ export function LoginFormAPI() {
         throw new Error(data.detail || "Đăng nhập thất bại");
       }
 
+      if (data.needs_terms_reaccept) {
+        setPendingToken(data.access_token);
+        setPendingVersion(data.current_terms_version || CURRENT_TERMS_VERSION);
+        setReacceptChecked(false);
+        return;
+      }
+
       saveSession(data.access_token, formData.username);
 
       router.push("/diagnosis");
@@ -55,6 +65,106 @@ export function LoginFormAPI() {
       setIsLoading(false);
     }
   };
+
+  const handleReacceptTerms = async () => {
+    if (!pendingToken || !reacceptChecked) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await fetch(API_ENDPOINTS.acceptTerms, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pendingToken}`,
+        },
+        body: JSON.stringify({
+          terms_version: pendingVersion,
+          age_confirmed: true,
+          research_consent: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "Không thể ghi nhận xác nhận điều khoản.");
+      }
+      saveSession(pendingToken, formData.username);
+      router.push("/diagnosis");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể ghi nhận xác nhận điều khoản.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (pendingToken) {
+    return (
+      <Card className="w-full border-slate-200/70 bg-white/90 shadow-sm shadow-slate-900/10">
+        <CardHeader className="px-7 pb-4 pt-8 text-left sm:px-9">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 ring-1 ring-sky-100">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <CardTitle className="text-2xl font-semibold text-slate-950">
+            Cập nhật Điều khoản ({pendingVersion})
+          </CardTitle>
+          <CardDescription className="mt-1.5 text-sm leading-6">
+            Điều khoản sử dụng và chính sách dữ liệu đã được cập nhật. Vui lòng đọc và xác nhận lại để tiếp tục.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 px-7 sm:px-9">
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-700">
+            <input
+              type="checkbox"
+              checked={reacceptChecked}
+              onChange={(e) => setReacceptChecked(e.target.checked)}
+              disabled={isLoading}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600"
+            />
+            <span>
+              Tôi xác nhận từ đủ 18 tuổi, đã đọc và đồng ý{" "}
+              <Link href="/terms#terms" target="_blank" className="font-semibold text-sky-700 underline">
+                Điều khoản sử dụng
+              </Link>{" "}
+              &amp;{" "}
+              <Link href="/terms#privacy" target="_blank" className="font-semibold text-sky-700 underline">
+                Chính sách dữ liệu
+              </Link>{" "}
+              ({pendingVersion}), và hiểu hệ thống không thay thế bác sĩ.
+            </span>
+          </label>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-3 px-7 pb-8 sm:px-9">
+          <Button
+            type="button"
+            className="h-11 w-full"
+            disabled={isLoading || !reacceptChecked}
+            onClick={handleReacceptTerms}
+          >
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Xác nhận và tiếp tục
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full text-xs text-slate-500"
+            disabled={isLoading}
+            onClick={() => {
+              clearSession();
+              setPendingToken(null);
+            }}
+          >
+            Hủy đăng nhập
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full border-slate-200/70 bg-white/90 shadow-sm shadow-slate-900/10">

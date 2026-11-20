@@ -48,14 +48,14 @@ const translations: Record<Language, Record<string, string>> = {
     "home.features.secureDesc": "Dữ liệu được mã hóa và bảo vệ",
     
     // Prediction Form
-    "predict.title": "Dự đoán bệnh tim mạch",
-    "predict.subtitle": "Nhập các chỉ số sức khỏe để nhận kết quả dự đoán",
-    "predict.submit": "Dự đoán ngay",
+    "predict.title": "Ước lượng nguy cơ tim mạch (tham khảo)",
+    "predict.subtitle": "Nhập các chỉ số sức khỏe để xem mức ước lượng tham khảo",
+    "predict.submit": "Xem ước lượng tham khảo",
     "predict.reset": "Làm mới",
-    "predict.result": "Kết quả dự đoán",
-    "predict.riskHigh": "Nguy cơ cao",
-    "predict.riskLow": "Nguy cơ thấp",
-    "predict.probability": "Xác suất",
+    "predict.result": "Kết quả ước lượng tham khảo",
+    "predict.riskHigh": "Mức ước lượng cao",
+    "predict.riskLow": "Mức ước lượng thấp",
+    "predict.probability": "Mức ước lượng mô hình",
     "predict.saveResult": "Lưu kết quả",
     "predict.saved": "Đã lưu!",
     
@@ -147,14 +147,14 @@ const translations: Record<Language, Record<string, string>> = {
     "home.features.secureDesc": "Data is encrypted and protected",
     
     // Prediction Form
-    "predict.title": "Heart Disease Prediction",
-    "predict.subtitle": "Enter your health indicators to get a prediction",
-    "predict.submit": "Predict Now",
+    "predict.title": "Cardiovascular Risk Estimation (Reference)",
+    "predict.subtitle": "Enter health indicators to view a reference risk estimate",
+    "predict.submit": "View Reference Estimate",
     "predict.reset": "Reset",
-    "predict.result": "Prediction Result",
-    "predict.riskHigh": "High Risk",
-    "predict.riskLow": "Low Risk",
-    "predict.probability": "Probability",
+    "predict.result": "Reference Estimate Result",
+    "predict.riskHigh": "Higher estimated risk",
+    "predict.riskLow": "Lower estimated risk",
+    "predict.probability": "Model estimate",
     "predict.saveResult": "Save Result",
     "predict.saved": "Saved!",
     

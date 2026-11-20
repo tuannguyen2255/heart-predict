@@ -112,24 +112,6 @@ export function MultiStepDiagnosisForm() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const getAgeBinning = (age: number) => ({ age_under_40: age < 40 ? 1 : 0 });
-
-  const mapChestPain = (cp: string) => ({
-    cp_typical_angina: cp === "typical_angina" ? 1 : 0,
-    cp_atypical_angina: cp === "atypical_angina" ? 1 : 0,
-    cp_non_anginal: cp === "non_anginal" ? 1 : 0,
-  });
-
-  const mapRestEcg = (restecg: string) => ({
-    restecg_normal: restecg === "normal" ? 1 : 0,
-    restecg_st_t_abnormality: restecg === "st_t_abnormality" ? 1 : 0,
-  });
-
-  const mapSlope = (slope: string) => ({
-    slope_flat: slope === "flat" ? 1 : 0,
-    slope_upsloping: slope === "upsloping" ? 1 : 0,
-  });
-
   const handleSubmit = async () => {
     if (submitting.current) return;
 
@@ -151,7 +133,7 @@ export function MultiStepDiagnosisForm() {
     try {
       const token = getAccessToken();
       if (!token) {
-        throw new Error(language === "vi" ? "Vui lòng đăng nhập để thực hiện chẩn đoán." : "Please sign in to run a prediction.");
+        throw new Error(language === "vi" ? "Vui lòng đăng nhập để thực hiện đánh giá tham khảo." : "Please sign in to run a reference assessment.");
       }
       const ageNum = parseFloat(formData.age);
       const bpNum = parseFloat(formData.trestbps);
@@ -175,29 +157,19 @@ export function MultiStepDiagnosisForm() {
 
       const payload = {
         age: ageNum,
-        sex: formData.sex === "1" ? 1 : 0,
+        sex: formData.sex === "1" ? "1" : "0",
         trestbps: bpNum,
         chol: requiredNumbers.chol,
-        fbs: parseInt(formData.fbs),
         thalch: requiredNumbers.thalch,
-        exang: parseInt(formData.exang),
         oldpeak: requiredNumbers.oldpeak,
-        ...mapChestPain(formData.cp),
-        ...mapRestEcg(formData.restecg),
-        ...mapSlope(formData.slope),
-        bp_age_ratio: bpNum / ageNum,
+        fbs: formData.fbs,
+        exang: formData.exang,
+        cp: formData.cp,
+        restecg: formData.restecg,
+        slope: formData.slope,
         include_bmi: hasHeight && hasWeight,
         height,
         weight,
-        ...getAgeBinning(ageNum),
-        ca_missing: 0,
-        thal_missing: 0,
-        dataset_Hungary: 0,
-        dataset_Switzerland: 0,
-        dataset_VA_Long_Beach: 0,
-        risk_score: 0,
-        risk_score_binary: 0,
-        name_prediction: formData.name_prediction || "default",
       };
 
       const url = API_ENDPOINTS.predict || "/api/predict";
